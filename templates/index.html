@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creador de Videos</title>
+    <!-- Google Fonts para preview de fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fira+Code:wght@400;700&family=Lato:wght@300;400;700;900&family=Montserrat:wght@400;700;900&family=Noto+Sans:wght@400;700&family=Open+Sans:wght@300;400;700&family=Oswald:wght@400;700&family=Playfair+Display:wght@400;700&family=Poppins:wght@400;700;900&family=Roboto:wght@300;400;700;900&family=Ubuntu:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #e94560, #0f3460);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section h2 {
+            margin-bottom: 20px;
+            color: #e94560;
+            font-size: 1.3em;
+        }
+
+        .drop-zone {
+            border: 3px dashed rgba(233, 69, 96, 0.5);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(233, 69, 96, 0.05);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.15);
+            transform: scale(1.01);
+        }
+
+        .drop-zone p {
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .images-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            min-height: 50px;
+        }
+
+        .image-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .image-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
+        }
+
+        .image-item.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .image-item.drag-over {
+            border-color: #e94560;
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-item .order {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: #e94560;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.8em;
+        }
+
+        .image-item .remove {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2em;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .image-item:hover .remove {
+            opacity: 1;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .file-info .icon {
+            font-size: 2em;
+        }
+
+        .file-info .details {
+            flex: 1;
+        }
+
+        .file-info .name {
+            font-weight: bold;
+        }
+
+        .file-info .size {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .file-info .remove-file {
+            background: #e94560;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-info .remove-file:hover {
+            background: #d63850;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .option-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        .option-group select,
+        .option-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 1em;
+        }
+
+        .option-group input[type="color"] {
+            height: 45px;
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .subsection-title {
+            color: #e94560;
+            font-size: 1.1em;
+            margin: 20px 0 15px 0;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .subsection-title:first-of-type {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        .option-group select:focus,
+        .option-group input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        /* Estilos para preview de fuentes en selectores */
+        .font-select {
+            font-size: 1.1em;
+        }
+
+        .font-select option {
+            padding: 8px;
+            font-size: 1.1em;
+        }
+
+        /* Clases de fuentes para preview */
+        .font-dejavu-sans { font-family: 'DejaVu Sans', sans-serif; }
+        .font-dejavu-serif { font-family: 'DejaVu Serif', serif; }
+        .font-liberation { font-family: 'Liberation Sans', sans-serif; }
+        .font-roboto { font-family: 'Roboto', sans-serif; }
+        .font-opensans { font-family: 'Open Sans', sans-serif; }
+        .font-lato { font-family: 'Lato', sans-serif; }
+        .font-ubuntu { font-family: 'Ubuntu', sans-serif; }
+        .font-noto { font-family: 'Noto Sans', sans-serif; }
+        .font-firacode { font-family: 'Fira Code', monospace; }
+        .font-montserrat { font-family: 'Montserrat', sans-serif; }
+        .font-poppins { font-family: 'Poppins', sans-serif; }
+        .font-oswald { font-family: 'Oswald', sans-serif; }
+        .font-playfair { font-family: 'Playfair Display', serif; }
+        .font-bebas { font-family: 'Bebas Neue', sans-serif; }
+
+        /* Estilos para input de imagen de fondo */
+        .file-input-styled {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            cursor: pointer;
+        }
+
+        .file-input-styled::-webkit-file-upload-button {
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .bg-image-preview {
+            margin-top: 10px;
+            max-height: 100px;
+            display: none;
+        }
+
+        .bg-image-preview img {
+            max-height: 100px;
+            max-width: 100%;
+            border-radius: 8px;
+            border: 2px solid rgba(233, 69, 96, 0.5);
+        }
+
+        .bg-image-preview .remove-bg {
+            display: inline-block;
+            margin-left: 10px;
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            vertical-align: top;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 30px auto 0;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            height: 30px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #0f3460);
+            border-radius: 25px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            min-width: 50px;
+        }
+
+        .status-message {
+            text-align: center;
+            color: #aaa;
+            margin-top: 10px;
+        }
+
+        .download-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+        }
+
+        .instructions {
+            background: rgba(233, 69, 96, 0.1);
+            border-left: 4px solid #e94560;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .instructions p {
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .processing .status-message {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Creador de Videos</h1>
+
+        <div class="instructions">
+            <p><strong>Instrucciones:</strong> Sube tus imagenes (puedes arrastrarlas para reordenar),
+            agrega el audio y opcionalmente un archivo de subtitulos .srt. Luego haz clic en "Crear Video".</p>
+        </div>
+
+        <!-- Seccion de imagenes -->
+        <div class="section">
+            <h2>1. Imagenes</h2>
+            <div class="drop-zone" id="imagesDropZone">
+                <div class="icon">🖼️</div>
+                <p>Arrastra tus imagenes aqui o haz clic para seleccionar</p>
+                <p style="font-size: 0.9em;">Formatos: JPG, PNG, WEBP, GIF</p>
+                <input type="file" id="imagesInput" accept="image/*" multiple>
+            </div>
+            <div class="images-preview" id="imagesPreview"></div>
+        </div>
+
+        <!-- Seccion de audio -->
+        <div class="section">
+            <h2>2. Audio</h2>
+            <div class="drop-zone" id="audioDropZone">
+                <div class="icon">🎵</div>
+                <p>Arrastra tu archivo de audio o haz clic para seleccionar</p>
+                <p style="font-size: 0.9em;">Formatos: MP3, WAV, AAC, OGG</p>
+                <input type="file" id="audioInput" accept="audio/*">
+            </div>
+            <div id="audioInfo"></div>
+        </div>
+
+        <!-- Seccion de subtitulos -->
+        <div class="section">
+            <h2>3. Subtitulos (Opcional)</h2>
+            <div class="drop-zone" id="srtDropZone">
+                <div class="icon">📝</div>
+                <p>Arrastra tu archivo .srt o haz clic para seleccionar</p>
+                <p style="font-size: 0.9em;">Formato: SRT</p>
+                <input type="file" id="srtInput" accept=".srt">
+            </div>
+            <div id="srtInfo"></div>
+        </div>
+
+        <!-- Opciones -->
+        <div class="section">
+            <h2>4. Opciones</h2>
+
+            <h3 class="subsection-title">Video</h3>
+            <div class="options-grid">
+                <div class="option-group">
+                    <label for="resolution">Resolucion</label>
+                    <select id="resolution">
+                        <option value="1080x1920">1080x1920 (Vertical/TikTok)</option>
+                        <option value="1920x1080">1920x1080 (Horizontal/YouTube)</option>
+                        <option value="1080x1080">1080x1080 (Cuadrado/Instagram)</option>
+                        <option value="720x1280">720x1280 (Vertical HD)</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="transitionType">Tipo de transicion</label>
+                    <select id="transitionType">
+                        <option value="crossfade">Crossfade (Fundido cruzado)</option>
+                        <option value="fade">Fade (Fundido a negro)</option>
+                        <option value="fadein">Fade In (Solo entrada)</option>
+                        <option value="fadeout">Fade Out (Solo salida)</option>
+                        <option value="slide_left">Deslizar izquierda</option>
+                        <option value="slide_right">Deslizar derecha</option>
+                        <option value="slide_up">Deslizar arriba</option>
+                        <option value="slide_down">Deslizar abajo</option>
+                        <option value="none">Sin transicion</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="transition">Duracion transicion (seg)</label>
+                    <input type="number" id="transition" value="0.5" min="0" max="3" step="0.1">
+                </div>
+                <div class="option-group">
+                    <label for="fps">FPS</label>
+                    <select id="fps">
+                        <option value="24">24 FPS</option>
+                        <option value="30">30 FPS</option>
+                        <option value="60">60 FPS</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3 class="subsection-title">Subtitulos</h3>
+            <div class="options-grid">
+                <div class="option-group">
+                    <label for="subtitleFont">Fuente</label>
+                    <select id="subtitleFont" class="font-select">
+                        <optgroup label="Sans Serif - Modernas">
+                            <option value="Roboto-Bold" style="font-family: 'Roboto', sans-serif; font-weight: bold;">Roboto Bold</option>
+                            <option value="Roboto" style="font-family: 'Roboto', sans-serif;">Roboto</option>
+                            <option value="Roboto-Black" style="font-family: 'Roboto', sans-serif; font-weight: 900;">Roboto Black</option>
+                            <option value="OpenSans-Bold" style="font-family: 'Open Sans', sans-serif; font-weight: bold;">Open Sans Bold</option>
+                            <option value="OpenSans" style="font-family: 'Open Sans', sans-serif;">Open Sans</option>
+                            <option value="Lato-Bold" style="font-family: 'Lato', sans-serif; font-weight: bold;">Lato Bold</option>
+                            <option value="Lato" style="font-family: 'Lato', sans-serif;">Lato</option>
+                            <option value="Lato-Black" style="font-family: 'Lato', sans-serif; font-weight: 900;">Lato Black</option>
+                            <option value="Montserrat-Bold" style="font-family: 'Montserrat', sans-serif; font-weight: bold;">Montserrat Bold</option>
+                            <option value="Montserrat" style="font-family: 'Montserrat', sans-serif;">Montserrat</option>
+                            <option value="Montserrat-Black" style="font-family: 'Montserrat', sans-serif; font-weight: 900;">Montserrat Black</option>
+                            <option value="Poppins-Bold" style="font-family: 'Poppins', sans-serif; font-weight: bold;">Poppins Bold</option>
+                            <option value="Poppins" style="font-family: 'Poppins', sans-serif;">Poppins</option>
+                            <option value="Poppins-Black" style="font-family: 'Poppins', sans-serif; font-weight: 900;">Poppins Black</option>
+                            <option value="Ubuntu-Bold" style="font-family: 'Ubuntu', sans-serif; font-weight: bold;">Ubuntu Bold</option>
+                            <option value="Ubuntu" style="font-family: 'Ubuntu', sans-serif;">Ubuntu</option>
+                            <option value="NotoSans-Bold" style="font-family: 'Noto Sans', sans-serif; font-weight: bold;">Noto Sans Bold</option>
+                            <option value="NotoSans" style="font-family: 'Noto Sans', sans-serif;">Noto Sans</option>
+                        </optgroup>
+                        <optgroup label="Display - Impacto">
+                            <option value="Oswald-Bold" style="font-family: 'Oswald', sans-serif; font-weight: bold;">Oswald Bold</option>
+                            <option value="Oswald" style="font-family: 'Oswald', sans-serif;">Oswald</option>
+                            <option value="BebasNeue" style="font-family: 'Bebas Neue', sans-serif;">Bebas Neue</option>
+                        </optgroup>
+                        <optgroup label="Serif - Elegantes">
+                            <option value="PlayfairDisplay-Bold" style="font-family: 'Playfair Display', serif; font-weight: bold;">Playfair Display Bold</option>
+                            <option value="PlayfairDisplay" style="font-family: 'Playfair Display', serif;">Playfair Display</option>
+                            <option value="DejaVuSerif-Bold" style="font-family: 'DejaVu Serif', serif; font-weight: bold;">DejaVu Serif Bold</option>
+                            <option value="DejaVuSerif" style="font-family: 'DejaVu Serif', serif;">DejaVu Serif</option>
+                            <option value="FreeSerif-Bold" style="font-family: serif; font-weight: bold;">Free Serif Bold</option>
+                            <option value="FreeSerif" style="font-family: serif;">FreeSerif</option>
+                        </optgroup>
+                        <optgroup label="Monoespaciadas">
+                            <option value="FiraCode-Bold" style="font-family: 'Fira Code', monospace; font-weight: bold;">Fira Code Bold</option>
+                            <option value="FiraCode" style="font-family: 'Fira Code', monospace;">Fira Code</option>
+                            <option value="LiberationMono-Bold" style="font-family: monospace; font-weight: bold;">Liberation Mono Bold</option>
+                        </optgroup>
+                        <optgroup label="Clasicas">
+                            <option value="DejaVuSans-Bold" style="font-family: 'DejaVu Sans', sans-serif; font-weight: bold;">DejaVu Sans Bold</option>
+                            <option value="DejaVuSans" style="font-family: 'DejaVu Sans', sans-serif;">DejaVu Sans</option>
+                            <option value="LiberationSans-Bold" style="font-family: 'Liberation Sans', sans-serif; font-weight: bold;">Liberation Sans Bold</option>
+                            <option value="LiberationSans" style="font-family: 'Liberation Sans', sans-serif;">Liberation Sans</option>
+                            <option value="FreeSans-Bold" style="font-family: sans-serif; font-weight: bold;">Free Sans Bold</option>
+                            <option value="FreeSans" style="font-family: sans-serif;">Free Sans</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="subtitleSize">Tamano de fuente</label>
+                    <input type="number" id="subtitleSize" value="75" min="20" max="150" step="5">
+                </div>
+                <div class="option-group">
+                    <label for="subtitleColor">Color del texto</label>
+                    <input type="color" id="subtitleColor" value="#ffffff">
+                </div>
+                <div class="option-group">
+                    <label for="subtitleStrokeColor">Color del borde</label>
+                    <input type="color" id="subtitleStrokeColor" value="#000000">
+                </div>
+                <div class="option-group">
+                    <label for="subtitleStrokeWidth">Grosor del borde</label>
+                    <input type="number" id="subtitleStrokeWidth" value="2" min="0" max="10" step="1">
+                </div>
+            </div>
+
+            <h3 class="subsection-title">Mensaje de Inicio (Intro)</h3>
+            <div class="options-grid">
+                <div class="option-group" style="grid-column: span 2;">
+                    <label for="introText">Texto de inicio</label>
+                    <input type="text" id="introText" placeholder="Ej: Bienvenidos a mi video" value="">
+                </div>
+                <div class="option-group">
+                    <label for="introDuration">Duracion (seg)</label>
+                    <input type="number" id="introDuration" value="5" min="1" max="15" step="0.5">
+                </div>
+                <div class="option-group">
+                    <label for="introFont">Fuente</label>
+                    <select id="introFont" class="font-select">
+                        <optgroup label="Sans Serif - Modernas">
+                            <option value="Montserrat-Bold" style="font-family: 'Montserrat', sans-serif; font-weight: bold;">Montserrat Bold</option>
+                            <option value="Montserrat-Black" style="font-family: 'Montserrat', sans-serif; font-weight: 900;">Montserrat Black</option>
+                            <option value="Poppins-Bold" style="font-family: 'Poppins', sans-serif; font-weight: bold;">Poppins Bold</option>
+                            <option value="Poppins-Black" style="font-family: 'Poppins', sans-serif; font-weight: 900;">Poppins Black</option>
+                            <option value="Roboto-Bold" style="font-family: 'Roboto', sans-serif; font-weight: bold;">Roboto Bold</option>
+                            <option value="Roboto-Black" style="font-family: 'Roboto', sans-serif; font-weight: 900;">Roboto Black</option>
+                            <option value="OpenSans-Bold" style="font-family: 'Open Sans', sans-serif; font-weight: bold;">Open Sans Bold</option>
+                            <option value="Lato-Bold" style="font-family: 'Lato', sans-serif; font-weight: bold;">Lato Bold</option>
+                            <option value="Lato-Black" style="font-family: 'Lato', sans-serif; font-weight: 900;">Lato Black</option>
+                            <option value="Ubuntu-Bold" style="font-family: 'Ubuntu', sans-serif; font-weight: bold;">Ubuntu Bold</option>
+                            <option value="NotoSans-Bold" style="font-family: 'Noto Sans', sans-serif; font-weight: bold;">Noto Sans Bold</option>
+                        </optgroup>
+                        <optgroup label="Display - Impacto">
+                            <option value="BebasNeue" style="font-family: 'Bebas Neue', sans-serif;">Bebas Neue</option>
+                            <option value="Oswald-Bold" style="font-family: 'Oswald', sans-serif; font-weight: bold;">Oswald Bold</option>
+                            <option value="Oswald" style="font-family: 'Oswald', sans-serif;">Oswald</option>
+                        </optgroup>
+                        <optgroup label="Serif - Elegantes">
+                            <option value="PlayfairDisplay-Bold" style="font-family: 'Playfair Display', serif; font-weight: bold;">Playfair Display Bold</option>
+                            <option value="PlayfairDisplay" style="font-family: 'Playfair Display', serif;">Playfair Display</option>
+                            <option value="FreeSerif-Bold" style="font-family: serif; font-weight: bold;">Free Serif Bold</option>
+                        </optgroup>
+                        <optgroup label="Clasicas">
+                            <option value="DejaVuSans-Bold" style="font-family: 'DejaVu Sans', sans-serif; font-weight: bold;">DejaVu Sans Bold</option>
+                            <option value="LiberationSans-Bold" style="font-family: 'Liberation Sans', sans-serif; font-weight: bold;">Liberation Sans Bold</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="introSize">Tamano de fuente</label>
+                    <input type="number" id="introSize" value="80" min="20" max="200" step="5">
+                </div>
+                <div class="option-group">
+                    <label for="introColor">Color del texto</label>
+                    <input type="color" id="introColor" value="#ffffff">
+                </div>
+                <div class="option-group">
+                    <label for="introBgColor">Color de fondo</label>
+                    <input type="color" id="introBgColor" value="#000000">
+                </div>
+                <div class="option-group" style="grid-column: span 2;">
+                    <label for="introBgImage">Imagen de fondo (opcional)</label>
+                    <input type="file" id="introBgImage" accept="image/*" class="file-input-styled">
+                    <div id="introBgImagePreview" class="bg-image-preview"></div>
+                </div>
+            </div>
+
+            <h3 class="subsection-title">Mensaje de Final (Outro)</h3>
+            <div class="options-grid">
+                <div class="option-group" style="grid-column: span 2;">
+                    <label for="outroText">Texto de final</label>
+                    <input type="text" id="outroText" placeholder="Ej: Gracias por ver!" value="">
+                </div>
+                <div class="option-group">
+                    <label for="outroDuration">Duracion (seg)</label>
+                    <input type="number" id="outroDuration" value="5" min="1" max="15" step="0.5">
+                </div>
+                <div class="option-group">
+                    <label for="outroFont">Fuente</label>
+                    <select id="outroFont" class="font-select">
+                        <optgroup label="Sans Serif - Modernas">
+                            <option value="Montserrat-Bold" style="font-family: 'Montserrat', sans-serif; font-weight: bold;">Montserrat Bold</option>
+                            <option value="Montserrat-Black" style="font-family: 'Montserrat', sans-serif; font-weight: 900;">Montserrat Black</option>
+                            <option value="Poppins-Bold" style="font-family: 'Poppins', sans-serif; font-weight: bold;">Poppins Bold</option>
+                            <option value="Poppins-Black" style="font-family: 'Poppins', sans-serif; font-weight: 900;">Poppins Black</option>
+                            <option value="Roboto-Bold" style="font-family: 'Roboto', sans-serif; font-weight: bold;">Roboto Bold</option>
+                            <option value="Roboto-Black" style="font-family: 'Roboto', sans-serif; font-weight: 900;">Roboto Black</option>
+                            <option value="OpenSans-Bold" style="font-family: 'Open Sans', sans-serif; font-weight: bold;">Open Sans Bold</option>
+                            <option value="Lato-Bold" style="font-family: 'Lato', sans-serif; font-weight: bold;">Lato Bold</option>
+                            <option value="Lato-Black" style="font-family: 'Lato', sans-serif; font-weight: 900;">Lato Black</option>
+                            <option value="Ubuntu-Bold" style="font-family: 'Ubuntu', sans-serif; font-weight: bold;">Ubuntu Bold</option>
+                            <option value="NotoSans-Bold" style="font-family: 'Noto Sans', sans-serif; font-weight: bold;">Noto Sans Bold</option>
+                        </optgroup>
+                        <optgroup label="Display - Impacto">
+                            <option value="BebasNeue" style="font-family: 'Bebas Neue', sans-serif;">Bebas Neue</option>
+                            <option value="Oswald-Bold" style="font-family: 'Oswald', sans-serif; font-weight: bold;">Oswald Bold</option>
+                            <option value="Oswald" style="font-family: 'Oswald', sans-serif;">Oswald</option>
+                        </optgroup>
+                        <optgroup label="Serif - Elegantes">
+                            <option value="PlayfairDisplay-Bold" style="font-family: 'Playfair Display', serif; font-weight: bold;">Playfair Display Bold</option>
+                            <option value="PlayfairDisplay" style="font-family: 'Playfair Display', serif;">Playfair Display</option>
+                            <option value="FreeSerif-Bold" style="font-family: serif; font-weight: bold;">Free Serif Bold</option>
+                        </optgroup>
+                        <optgroup label="Clasicas">
+                            <option value="DejaVuSans-Bold" style="font-family: 'DejaVu Sans', sans-serif; font-weight: bold;">DejaVu Sans Bold</option>
+                            <option value="LiberationSans-Bold" style="font-family: 'Liberation Sans', sans-serif; font-weight: bold;">Liberation Sans Bold</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="outroSize">Tamano de fuente</label>
+                    <input type="number" id="outroSize" value="80" min="20" max="200" step="5">
+                </div>
+                <div class="option-group">
+                    <label for="outroColor">Color del texto</label>
+                    <input type="color" id="outroColor" value="#ffffff">
+                </div>
+                <div class="option-group">
+                    <label for="outroBgColor">Color de fondo</label>
+                    <input type="color" id="outroBgColor" value="#000000">
+                </div>
+                <div class="option-group" style="grid-column: span 2;">
+                    <label for="outroBgImage">Imagen de fondo (opcional)</label>
+                    <input type="file" id="outroBgImage" accept="image/*" class="file-input-styled">
+                    <div id="outroBgImagePreview" class="bg-image-preview"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boton crear -->
+        <button class="btn" id="createBtn" disabled>Crear Video</button>
+
+        <!-- Seccion de progreso -->
+        <div class="section progress-section" id="progressSection">
+            <h2>Progreso</h2>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%">0%</div>
+            </div>
+            <p class="status-message" id="statusMessage">Preparando...</p>
+
+            <div class="download-section" id="downloadSection" style="display: none;">
+                <button class="btn btn-download" id="downloadBtn">Descargar Video</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estado de la aplicacion
+        let images = [];
+        let audioFile = null;
+        let srtFile = null;
+        let introBgImage = null;
+        let outroBgImage = null;
+        let currentJobId = null;
+        let draggedItem = null;
+
+        // Elementos del DOM
+        const imagesDropZone = document.getElementById('imagesDropZone');
+        const imagesInput = document.getElementById('imagesInput');
+        const imagesPreview = document.getElementById('imagesPreview');
+        const audioDropZone = document.getElementById('audioDropZone');
+        const audioInput = document.getElementById('audioInput');
+        const audioInfo = document.getElementById('audioInfo');
+        const srtDropZone = document.getElementById('srtDropZone');
+        const srtInput = document.getElementById('srtInput');
+        const srtInfo = document.getElementById('srtInfo');
+        const createBtn = document.getElementById('createBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Configurar drop zones
+        function setupDropZone(dropZone, input, handler) {
+            dropZone.addEventListener('click', () => input.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                handler(e.dataTransfer.files);
+            });
+
+            input.addEventListener('change', () => {
+                handler(input.files);
+            });
+        }
+
+        // Manejar imagenes
+        function handleImages(files) {
+            for (const file of files) {
+                if (file.type.startsWith('image/')) {
+                    images.push(file);
+                }
+            }
+            renderImages();
+            updateCreateButton();
+        }
+
+        function renderImages() {
+            imagesPreview.innerHTML = '';
+
+            images.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'image-item';
+                div.draggable = true;
+                div.dataset.index = index;
+
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+
+                const order = document.createElement('div');
+                order.className = 'order';
+                order.textContent = index + 1;
+
+                const remove = document.createElement('div');
+                remove.className = 'remove';
+                remove.innerHTML = '&times;';
+                remove.onclick = (e) => {
+                    e.stopPropagation();
+                    images.splice(index, 1);
+                    renderImages();
+                    updateCreateButton();
+                };
+
+                div.appendChild(img);
+                div.appendChild(order);
+                div.appendChild(remove);
+
+                // Drag events para reordenar
+                div.addEventListener('dragstart', (e) => {
+                    draggedItem = div;
+                    div.classList.add('dragging');
+                });
+
+                div.addEventListener('dragend', () => {
+                    div.classList.remove('dragging');
+                    draggedItem = null;
+                });
+
+                div.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (draggedItem && draggedItem !== div) {
+                        div.classList.add('drag-over');
+                    }
+                });
+
+                div.addEventListener('dragleave', () => {
+                    div.classList.remove('drag-over');
+                });
+
+                div.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    div.classList.remove('drag-over');
+
+                    if (draggedItem && draggedItem !== div) {
+                        const fromIndex = parseInt(draggedItem.dataset.index);
+                        const toIndex = parseInt(div.dataset.index);
+
+                        const [moved] = images.splice(fromIndex, 1);
+                        images.splice(toIndex, 0, moved);
+
+                        renderImages();
+                    }
+                });
+
+                imagesPreview.appendChild(div);
+            });
+        }
+
+        // Manejar audio
+        function handleAudio(files) {
+            if (files.length > 0 && files[0].type.startsWith('audio/')) {
+                audioFile = files[0];
+                renderFileInfo(audioInfo, audioFile, '🎵', () => {
+                    audioFile = null;
+                    audioInfo.innerHTML = '';
+                    updateCreateButton();
+                });
+                updateCreateButton();
+            }
+        }
+
+        // Manejar SRT
+        function handleSrt(files) {
+            if (files.length > 0 && files[0].name.endsWith('.srt')) {
+                srtFile = files[0];
+                renderFileInfo(srtInfo, srtFile, '📝', () => {
+                    srtFile = null;
+                    srtInfo.innerHTML = '';
+                });
+            }
+        }
+
+        function renderFileInfo(container, file, icon, onRemove) {
+            container.innerHTML = `
+                <div class="file-info">
+                    <span class="icon">${icon}</span>
+                    <div class="details">
+                        <div class="name">${file.name}</div>
+                        <div class="size">${formatBytes(file.size)}</div>
+                    </div>
+                    <button class="remove-file">Eliminar</button>
+                </div>
+            `;
+            container.querySelector('.remove-file').onclick = onRemove;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function updateCreateButton() {
+            createBtn.disabled = images.length === 0 || !audioFile;
+        }
+
+        // Configurar drop zones
+        setupDropZone(imagesDropZone, imagesInput, handleImages);
+        setupDropZone(audioDropZone, audioInput, handleAudio);
+        setupDropZone(srtDropZone, srtInput, handleSrt);
+
+        // Crear video
+        createBtn.addEventListener('click', async () => {
+            const formData = new FormData();
+
+            // Agregar imagenes
+            images.forEach(img => {
+                formData.append('images', img);
+            });
+
+            // Agregar orden de imagenes
+            formData.append('image_order', images.map(img => img.name).join(','));
+
+            // Agregar audio
+            formData.append('audio', audioFile);
+
+            // Agregar subtitulos si existen
+            if (srtFile) {
+                formData.append('srt', srtFile);
+            }
+
+            // Agregar opciones de video
+            formData.append('resolution', document.getElementById('resolution').value);
+            formData.append('transition_type', document.getElementById('transitionType').value);
+            formData.append('transition', document.getElementById('transition').value);
+            formData.append('fps', document.getElementById('fps').value);
+
+            // Agregar opciones de subtitulos
+            formData.append('subtitle_font', document.getElementById('subtitleFont').value);
+            formData.append('subtitle_size', document.getElementById('subtitleSize').value);
+            formData.append('subtitle_color', document.getElementById('subtitleColor').value);
+            formData.append('subtitle_stroke_color', document.getElementById('subtitleStrokeColor').value);
+            formData.append('subtitle_stroke_width', document.getElementById('subtitleStrokeWidth').value);
+
+            // Agregar opciones de intro
+            formData.append('intro_text', document.getElementById('introText').value);
+            formData.append('intro_duration', document.getElementById('introDuration').value);
+            formData.append('intro_font', document.getElementById('introFont').value);
+            formData.append('intro_size', document.getElementById('introSize').value);
+            formData.append('intro_color', document.getElementById('introColor').value);
+            formData.append('intro_bg_color', document.getElementById('introBgColor').value);
+            if (introBgImage) {
+                formData.append('intro_bg_image', introBgImage);
+            }
+
+            // Agregar opciones de outro
+            formData.append('outro_text', document.getElementById('outroText').value);
+            formData.append('outro_duration', document.getElementById('outroDuration').value);
+            formData.append('outro_font', document.getElementById('outroFont').value);
+            formData.append('outro_size', document.getElementById('outroSize').value);
+            formData.append('outro_color', document.getElementById('outroColor').value);
+            formData.append('outro_bg_color', document.getElementById('outroBgColor').value);
+            if (outroBgImage) {
+                formData.append('outro_bg_image', outroBgImage);
+            }
+
+            // Mostrar progreso
+            progressSection.classList.add('active');
+            progressSection.classList.add('processing');
+            createBtn.disabled = true;
+            downloadSection.style.display = 'none';
+
+            try {
+                // Enviar archivos
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                currentJobId = data.job_id;
+
+                // Escuchar progreso
+                const eventSource = new EventSource(`/api/progress/${currentJobId}`);
+
+                eventSource.onmessage = (event) => {
+                    const progress = JSON.parse(event.data);
+
+                    progressBar.style.width = `${progress.progress}%`;
+                    progressBar.textContent = `${progress.progress}%`;
+                    statusMessage.textContent = progress.message;
+
+                    if (progress.status === 'completed') {
+                        eventSource.close();
+                        progressSection.classList.remove('processing');
+                        downloadSection.style.display = 'block';
+                        createBtn.disabled = false;
+                    } else if (progress.status === 'error') {
+                        eventSource.close();
+                        progressSection.classList.remove('processing');
+                        statusMessage.textContent = progress.message;
+                        statusMessage.style.color = '#e94560';
+                        createBtn.disabled = false;
+                    }
+                };
+
+                eventSource.onerror = () => {
+                    eventSource.close();
+                    statusMessage.textContent = 'Error de conexion';
+                    statusMessage.style.color = '#e94560';
+                    createBtn.disabled = false;
+                };
+
+            } catch (error) {
+                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.style.color = '#e94560';
+                progressSection.classList.remove('processing');
+                createBtn.disabled = false;
+            }
+        });
+
+        // Descargar video
+        downloadBtn.addEventListener('click', () => {
+            if (currentJobId) {
+                window.location.href = `/api/download/${currentJobId}`;
+            }
+        });
+
+        // Mapeo de fuentes para preview en selectores
+        const fontFamilyMap = {
+            'Roboto': "'Roboto', sans-serif",
+            'Roboto-Bold': "'Roboto', sans-serif",
+            'Roboto-Black': "'Roboto', sans-serif",
+            'Roboto-Light': "'Roboto', sans-serif",
+            'OpenSans': "'Open Sans', sans-serif",
+            'OpenSans-Bold': "'Open Sans', sans-serif",
+            'OpenSans-Light': "'Open Sans', sans-serif",
+            'Lato': "'Lato', sans-serif",
+            'Lato-Bold': "'Lato', sans-serif",
+            'Lato-Black': "'Lato', sans-serif",
+            'Lato-Light': "'Lato', sans-serif",
+            'Montserrat': "'Montserrat', sans-serif",
+            'Montserrat-Bold': "'Montserrat', sans-serif",
+            'Montserrat-Black': "'Montserrat', sans-serif",
+            'Poppins': "'Poppins', sans-serif",
+            'Poppins-Bold': "'Poppins', sans-serif",
+            'Poppins-Black': "'Poppins', sans-serif",
+            'Ubuntu': "'Ubuntu', sans-serif",
+            'Ubuntu-Bold': "'Ubuntu', sans-serif",
+            'Ubuntu-Light': "'Ubuntu', sans-serif",
+            'NotoSans': "'Noto Sans', sans-serif",
+            'NotoSans-Bold': "'Noto Sans', sans-serif",
+            'Oswald': "'Oswald', sans-serif",
+            'Oswald-Bold': "'Oswald', sans-serif",
+            'BebasNeue': "'Bebas Neue', sans-serif",
+            'PlayfairDisplay': "'Playfair Display', serif",
+            'PlayfairDisplay-Bold': "'Playfair Display', serif",
+            'FiraCode': "'Fira Code', monospace",
+            'FiraCode-Bold': "'Fira Code', monospace",
+            'DejaVuSans': "'DejaVu Sans', sans-serif",
+            'DejaVuSans-Bold': "'DejaVu Sans', sans-serif",
+            'DejaVuSerif': "'DejaVu Serif', serif",
+            'DejaVuSerif-Bold': "'DejaVu Serif', serif",
+            'LiberationSans': "'Liberation Sans', sans-serif",
+            'LiberationSans-Bold': "'Liberation Sans', sans-serif",
+            'LiberationMono-Bold': "monospace",
+            'FreeSans': "sans-serif",
+            'FreeSans-Bold': "sans-serif",
+            'FreeSerif': "serif",
+            'FreeSerif-Bold': "serif",
+        };
+
+        // Funcion para actualizar la fuente del selector
+        function updateSelectFont(selectElement) {
+            const selectedValue = selectElement.value;
+            const fontFamily = fontFamilyMap[selectedValue] || 'sans-serif';
+            selectElement.style.fontFamily = fontFamily;
+
+            // Determinar peso de fuente
+            if (selectedValue.includes('Black')) {
+                selectElement.style.fontWeight = '900';
+            } else if (selectedValue.includes('Bold')) {
+                selectElement.style.fontWeight = 'bold';
+            } else if (selectedValue.includes('Light')) {
+                selectElement.style.fontWeight = '300';
+            } else {
+                selectElement.style.fontWeight = 'normal';
+            }
+        }
+
+        // Aplicar a todos los selectores de fuente
+        const fontSelects = document.querySelectorAll('.font-select');
+        fontSelects.forEach(select => {
+            // Actualizar al cargar
+            updateSelectFont(select);
+            // Actualizar al cambiar
+            select.addEventListener('change', () => updateSelectFont(select));
+        });
+
+        // Manejar imagenes de fondo para intro/outro
+        function setupBgImageInput(inputId, previewId, varSetter) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+
+            input.addEventListener('change', () => {
+                if (input.files.length > 0) {
+                    const file = input.files[0];
+                    varSetter(file);
+
+                    // Mostrar preview
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-bg';
+                    removeBtn.textContent = 'Quitar';
+                    removeBtn.onclick = () => {
+                        varSetter(null);
+                        input.value = '';
+                        preview.innerHTML = '';
+                        preview.style.display = 'none';
+                    };
+
+                    preview.innerHTML = '';
+                    preview.appendChild(img);
+                    preview.appendChild(removeBtn);
+                    preview.style.display = 'block';
+                }
+            });
+        }
+
+        setupBgImageInput('introBgImage', 'introBgImagePreview', (file) => { introBgImage = file; });
+        setupBgImageInput('outroBgImage', 'outroBgImagePreview', (file) => { outroBgImage = file; });
+    </script>
+</body>
+</html>
