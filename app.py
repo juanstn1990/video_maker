@@ -261,6 +261,8 @@ def create_subtitle_clips(
     font_path: str = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     typewriter_ratio: float = 0.7,
     max_clips_per_subtitle: int = 30,
+    typewriter_enabled: bool = True,
+    position: str = 'center',
 ) -> list:
     """
     Crea clips de texto para cada subtítulo con efecto typewriter optimizado.
@@ -268,6 +270,8 @@ def create_subtitle_clips(
     Optimización: En lugar de crear un clip por cada caracter, agrupa caracteres
     para crear un máximo de max_clips_per_subtitle clips por subtítulo.
     Esto reduce dramáticamente el uso de memoria y tiempo de composición.
+
+    Si typewriter_enabled=False, muestra el texto completo de una vez.
     """
     subtitle_clips = []
 
@@ -278,6 +282,34 @@ def create_subtitle_clips(
         if not text:
             continue
 
+        # Si el efecto typewriter está deshabilitado, crear un solo clip
+        if not typewriter_enabled:
+            wrapped_text = wrap_text(text, font_size, resolution[0] - 80, font_path)
+
+            txt_clip = TextClip(
+                text=wrapped_text,
+                font_size=font_size,
+                color=font_color,
+                stroke_color=stroke_color,
+                stroke_width=stroke_width,
+                font=font_path,
+                method='caption',
+                size=(resolution[0] - 80, None),
+                text_align='center',
+                margin=(stroke_width + 10, stroke_width + int(font_size * 0.3)),
+            )
+
+            txt_clip = txt_clip.with_duration(duration)
+            txt_clip = txt_clip.with_start(sub['start'])
+            if position == 'bottom':
+                txt_clip = txt_clip.with_position(('center', resolution[1] - txt_clip.h - 50))
+            else:
+                txt_clip = txt_clip.with_position('center')
+
+            subtitle_clips.append(txt_clip)
+            continue
+
+        # Efecto typewriter habilitado
         typewriter_duration = duration * typewriter_ratio
         hold_duration = duration * (1 - typewriter_ratio)
 
@@ -315,13 +347,16 @@ def create_subtitle_clips(
                 method='caption',
                 size=(resolution[0] - 80, None),
                 text_align='center',
-                margin=(stroke_width + 5, stroke_width + 5),
+                margin=(stroke_width + 10, stroke_width + int(font_size * 0.3)),
             )
 
             txt_clip = txt_clip.with_duration(clip_duration)
             start_time = sub['start'] + idx * time_per_step
             txt_clip = txt_clip.with_start(start_time)
-            txt_clip = txt_clip.with_position('center')
+            if position == 'bottom':
+                txt_clip = txt_clip.with_position(('center', resolution[1] - txt_clip.h - 50))
+            else:
+                txt_clip = txt_clip.with_position('center')
 
             subtitle_clips.append(txt_clip)
 
@@ -608,6 +643,8 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
                     stroke_color=sub_cfg.get('stroke_color', 'black'),
                     stroke_width=sub_cfg.get('stroke_width', 2),
                     font_path=sub_cfg.get('font_path', FONTS['DejaVuSans-Bold']),
+                    typewriter_enabled=sub_cfg.get('typewriter_enabled', True),
+                    position=sub_cfg.get('position', 'center'),
                 )
                 video = CompositeVideoClip([video] + subtitle_clips, size=resolution)
                 video = video.with_duration(total_duration)
@@ -763,6 +800,8 @@ def upload_files():
     subtitle_color = request.form.get('subtitle_color', '#ffffff')
     subtitle_stroke_color = request.form.get('subtitle_stroke_color', '#000000')
     subtitle_stroke_width = int(request.form.get('subtitle_stroke_width', 2))
+    subtitle_typewriter = request.form.get('subtitle_typewriter', 'true').lower() == 'true'
+    subtitle_position = request.form.get('subtitle_position', 'center')
 
     subtitle_config = {
         'font_path': FONTS.get(subtitle_font, FONTS['DejaVuSans-Bold']),
@@ -770,6 +809,8 @@ def upload_files():
         'font_color': subtitle_color,
         'stroke_color': subtitle_stroke_color,
         'stroke_width': subtitle_stroke_width,
+        'typewriter_enabled': subtitle_typewriter,
+        'position': subtitle_position,
     }
 
     # Obtener configuración de intro

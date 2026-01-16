@@ -572,6 +572,20 @@
                     <label for="subtitleStrokeWidth">Grosor del borde</label>
                     <input type="number" id="subtitleStrokeWidth" value="2" min="0" max="10" step="1">
                 </div>
+                <div class="option-group">
+                    <label for="subtitleTypewriter">Efecto de escritura</label>
+                    <select id="subtitleTypewriter">
+                        <option value="true" selected>Con efecto typing</option>
+                        <option value="false">Sin efecto (texto completo)</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="subtitlePosition">Posicion</label>
+                    <select id="subtitlePosition">
+                        <option value="center" selected>Centro</option>
+                        <option value="bottom">Abajo</option>
+                    </select>
+                </div>
             </div>
 
             <h3 class="subsection-title">Mensaje de Inicio (Intro)</h3>
@@ -984,6 +998,8 @@
             formData.append('subtitle_color', document.getElementById('subtitleColor').value);
             formData.append('subtitle_stroke_color', document.getElementById('subtitleStrokeColor').value);
             formData.append('subtitle_stroke_width', document.getElementById('subtitleStrokeWidth').value);
+            formData.append('subtitle_typewriter', document.getElementById('subtitleTypewriter').value);
+            formData.append('subtitle_position', document.getElementById('subtitlePosition').value);
 
             // Agregar opciones de intro
             formData.append('intro_text', document.getElementById('introText').value);
