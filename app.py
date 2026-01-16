@@ -123,6 +123,45 @@ def parse_srt(srt_path: str) -> list[dict]:
     return subtitles
 
 
+
+def wrap_text(text: str, font_size: int, width: int) -> str:
+    """
+    Envuelve el texto para que quepan palabras completas sin partir.
+    Esto previene que las palabras se corten a mitad.
+    
+    Args:
+        text: Texto a envolver
+        font_size: Tamaño de fuente en píxeles
+        width: Ancho disponible en píxeles
+    
+    Returns:
+        Texto con saltos de línea (\n) para envolver adecuadamente
+    """
+    words = text.split()
+    lines = []
+    current_line = []
+    
+    # Estimación aproximada: cada carácter ocupa ~0.6 * font_size píxeles
+    # Esto es una aproximación, pero funciona bien para la mayoría de fuentes
+    chars_per_line = max(1, int(width / (font_size * 0.55)))
+    
+    for word in words:
+        current_line.append(word)
+        current_line_text = ' '.join(current_line)
+        
+        # Si la línea es demasiado larga, mover la palabra a la siguiente línea
+        if len(current_line_text) > chars_per_line:
+            current_line.pop()  # Remover la última palabra
+            if current_line:
+                lines.append(' '.join(current_line))
+            current_line = [word]
+    
+    if current_line:
+        lines.append(' '.join(current_line))
+    
+    return '\n'.join(lines)
+
+
 def create_subtitle_clips(
     subtitles: list[dict],
     resolution: tuple[int, int],
@@ -149,6 +188,8 @@ def create_subtitle_clips(
 
         for i in range(1, len(text) + 1):
             partial_text = text[:i]
+            # Envolver el texto parcial para evitar que se corten palabras
+            wrapped_partial = wrap_text(partial_text, font_size, resolution[0] - 80)
 
             if i < len(text):
                 clip_duration = time_per_char
@@ -156,14 +197,14 @@ def create_subtitle_clips(
                 clip_duration = time_per_char + hold_duration
 
             txt_clip = TextClip(
-                text=partial_text,
+                text=wrapped_partial,
                 font_size=font_size,
                 color=font_color,
                 stroke_color=stroke_color,
                 stroke_width=stroke_width,
                 font=font_path,
                 method='caption',
-                size=(resolution[0] - 40, None),
+                size=(resolution[0] - 80, None),
                 text_align='center',
                 margin=(stroke_width + 5, stroke_width + 5),
             )
