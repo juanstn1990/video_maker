@@ -90,13 +90,20 @@ from proglog import ProgressBarLogger
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
 
+class JobCancelledException(Exception):
+    """Excepción lanzada cuando un trabajo es cancelado."""
+    pass
+
+
 class JobProgressLogger(ProgressBarLogger):
     """Logger personalizado que actualiza el progreso del job con información detallada de moviepy."""
 
-    def __init__(self, job_id: str, jobs_dict: dict, base_progress: int = 80, max_progress: int = 95):
+    def __init__(self, job_id: str, jobs_dict: dict, cancel_event: threading.Event = None,
+                 base_progress: int = 80, max_progress: int = 95):
         super().__init__()
         self.job_id = job_id
         self.jobs_dict = jobs_dict
+        self.cancel_event = cancel_event
         self.base_progress = base_progress
         self.max_progress = max_progress
         self.start_time = None
@@ -104,6 +111,10 @@ class JobProgressLogger(ProgressBarLogger):
 
     def bars_callback(self, bar, attr, value, old_value=None):
         """Callback llamado cuando hay cambios en las barras de progreso."""
+        # Verificar cancelación
+        if self.cancel_event and self.cancel_event.is_set():
+            raise JobCancelledException("Trabajo cancelado por el usuario")
+
         super().bars_callback(bar, attr, value, old_value)
 
         # Solo procesar la barra de frames
@@ -181,6 +192,9 @@ app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB máximo
 
 # Almacén de progreso de trabajos
 jobs = {}
+
+# Eventos de cancelación para cada trabajo
+cancel_events = {}
 
 # Mapeo de fuentes disponibles
 FONTS = {
@@ -633,14 +647,28 @@ def get_transition_effects(transition_type: str, transition_duration: float, res
 def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str = None,
                   resolution: tuple[int, int] = (1080, 1920), transition_type: str = 'crossfade',
                   transition_duration: float = 0.5, fps: int = 4, subtitle_config: dict = None,
-                  intro_config: dict = None, outro_config: dict = None):
+                  intro_config: dict = None, outro_config: dict = None,
+                  cancel_event: threading.Event = None):
     """Procesa el video en un hilo separado."""
+    temp_video_path = None
+    audio = None
+    video = None
+    clips = []
+
+    def check_cancelled():
+        """Verifica si el trabajo fue cancelado."""
+        if cancel_event and cancel_event.is_set():
+            raise JobCancelledException("Trabajo cancelado por el usuario")
+
     try:
         jobs[job_id]['status'] = 'processing'
         jobs[job_id]['progress'] = 0
         jobs[job_id]['message'] = 'Iniciando procesamiento...'
 
         output_path = str(UPLOAD_FOLDER / f'{job_id}_output.mp4')
+        temp_video_path = output_path.replace('.mp4', '_temp_video.mp4')
+
+        check_cancelled()
 
         # Cargar audio
         jobs[job_id]['message'] = 'Cargando audio...'
@@ -653,9 +681,12 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
         # Obtener efectos de transición
         effects, needs_overlap = get_transition_effects(transition_type, transition_duration, resolution)
 
+        check_cancelled()
+
         # Crear clips de imágenes
-        clips = []
         for i, image_path in enumerate(images):
+            check_cancelled()
+
             progress = 10 + int((i / len(images)) * 50)
             jobs[job_id]['progress'] = progress
             jobs[job_id]['message'] = f'Procesando imagen {i + 1}/{len(images)}...'
@@ -718,18 +749,22 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
                 video = CompositeVideoClip([video] + subtitle_clips, size=resolution)
                 video = video.with_duration(total_duration)
 
-        # Agregar audio al video principal
-        jobs[job_id]['message'] = 'Agregando audio...'
-        jobs[job_id]['progress'] = 75
-        video = video.with_audio(audio)
+        check_cancelled()
 
         # Crear clips de intro y outro si están configurados
+        # El intro y outro son SILENCIOSOS (sin la canción)
+        # Los subtítulos están sincronizados con la canción (que empieza después del intro)
         clips_to_concat = []
+        intro_duration = 0
+
+        check_cancelled()
 
         if intro_config:
             jobs[job_id]['message'] = 'Creando intro...'
             jobs[job_id]['progress'] = 77
             intro_clip = create_title_clip(intro_config, resolution)
+            intro_duration = intro_config['duration']
+            # Intro sin audio (silencioso)
             clips_to_concat.append(intro_clip)
 
         clips_to_concat.append(video)
@@ -738,22 +773,25 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
             jobs[job_id]['message'] = 'Creando outro...'
             jobs[job_id]['progress'] = 78
             outro_clip = create_title_clip(outro_config, resolution)
+            # Outro sin audio (silencioso)
             clips_to_concat.append(outro_clip)
 
-        # Concatenar intro + video + outro si es necesario
+        check_cancelled()
+
+        # Concatenar intro (silencioso) + video (con audio) + outro (silencioso)
         if len(clips_to_concat) > 1:
             jobs[job_id]['message'] = 'Concatenando intro/outro...'
             jobs[job_id]['progress'] = 79
             video = concatenate_videoclips(clips_to_concat, method="compose")
 
+        check_cancelled()
+
         # Exportar video sin audio (más rápido)
         jobs[job_id]['message'] = 'Iniciando renderizado...'
         jobs[job_id]['progress'] = 80
 
-        temp_video_path = output_path.replace('.mp4', '_temp_video.mp4')
-
-        # Crear logger personalizado para capturar el progreso real
-        progress_logger = JobProgressLogger(job_id, jobs, base_progress=80, max_progress=95)
+        # Crear logger personalizado para capturar el progreso real (con soporte de cancelación)
+        progress_logger = JobProgressLogger(job_id, jobs, cancel_event, base_progress=80, max_progress=95)
 
         video.write_videofile(
             temp_video_path,
@@ -771,40 +809,96 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
             ],
         )
 
-        # Combinar video + audio con ffmpeg (instantáneo)
+        check_cancelled()
+
+        # Combinar video + audio con ffmpeg
+        # El audio empieza después del intro (con offset)
         jobs[job_id]['message'] = 'Combinando audio...'
         jobs[job_id]['progress'] = 95
 
-        subprocess.run([
+        ffmpeg_cmd = [
             SYSTEM_FFMPEG,
             "-y",
             "-i", temp_video_path,
+        ]
+
+        # Si hay intro, agregar offset al audio para que empiece después del intro
+        if intro_duration > 0:
+            ffmpeg_cmd.extend(["-itsoffset", str(intro_duration)])
+
+        ffmpeg_cmd.extend([
             "-i", audio_path,
             "-c:v", "copy",  # No re-codifica video
             "-c:a", "aac",
-            "-shortest",
             "-movflags", "+faststart",
             output_path
-        ], check=True, capture_output=True)
+        ])
+
+        subprocess.run(ffmpeg_cmd, check=True, capture_output=True)
 
         # Eliminar video temporal
-        os.remove(temp_video_path)
+        if temp_video_path and os.path.exists(temp_video_path):
+            os.remove(temp_video_path)
 
         # Limpiar
-        audio.close()
+        if audio:
+            audio.close()
         for clip in clips:
             clip.close()
-        video.close()
+        if video:
+            video.close()
 
         jobs[job_id]['status'] = 'completed'
         jobs[job_id]['progress'] = 100
         jobs[job_id]['message'] = 'Video creado exitosamente!'
         jobs[job_id]['output_file'] = output_path
 
+    except JobCancelledException:
+        # Trabajo cancelado por el usuario
+        jobs[job_id]['status'] = 'cancelled'
+        jobs[job_id]['message'] = 'Proceso cancelado'
+        jobs[job_id]['progress'] = 0
+
+        # Limpiar archivos temporales
+        if temp_video_path and os.path.exists(temp_video_path):
+            try:
+                os.remove(temp_video_path)
+            except Exception:
+                pass
+
+        # Limpiar recursos
+        try:
+            if audio:
+                audio.close()
+            for clip in clips:
+                clip.close()
+            if video:
+                video.close()
+        except Exception:
+            pass
+
     except Exception as e:
         jobs[job_id]['status'] = 'error'
         jobs[job_id]['message'] = f'Error: {str(e)}'
         jobs[job_id]['progress'] = 0
+
+        # Limpiar archivos temporales en caso de error
+        if temp_video_path and os.path.exists(temp_video_path):
+            try:
+                os.remove(temp_video_path)
+            except Exception:
+                pass
+
+        # Limpiar recursos
+        try:
+            if audio:
+                audio.close()
+            for clip in clips:
+                clip.close()
+            if video:
+                video.close()
+        except Exception:
+            pass
 
 
 @app.route('/')
@@ -936,6 +1030,10 @@ def upload_files():
     if not image_paths or not audio_path:
         return jsonify({'error': 'Se requieren imágenes y audio'}), 400
 
+    # Crear evento de cancelación para este trabajo
+    cancel_event = threading.Event()
+    cancel_events[job_id] = cancel_event
+
     # Inicializar job
     jobs[job_id] = {
         'status': 'queued',
@@ -947,7 +1045,7 @@ def upload_files():
     # Iniciar procesamiento en hilo separado
     thread = threading.Thread(
         target=process_video,
-        args=(job_id, image_paths, audio_path, srt_path, (width, height), transition_type, transition, fps, subtitle_config, intro_config, outro_config)
+        args=(job_id, image_paths, audio_path, srt_path, (width, height), transition_type, transition, fps, subtitle_config, intro_config, outro_config, cancel_event)
     )
     thread.start()
 
@@ -971,7 +1069,7 @@ def get_progress(job_id):
                     data['render_info'] = job['render_info']
                 yield f"data: {json.dumps(data)}\n\n"
 
-                if job['status'] in ['completed', 'error']:
+                if job['status'] in ['completed', 'error', 'cancelled']:
                     break
             else:
                 yield f"data: {json.dumps({'status': 'not_found', 'progress': 0, 'message': 'Trabajo no encontrado'})}\n\n"
@@ -997,6 +1095,27 @@ def get_status(job_id):
     })
 
 
+@app.route('/api/cancel/<job_id>', methods=['POST'])
+def cancel_job(job_id):
+    """Cancela un trabajo en proceso."""
+    if job_id not in jobs:
+        return jsonify({'error': 'Trabajo no encontrado'}), 404
+
+    job = jobs[job_id]
+
+    # Solo se puede cancelar si está en proceso o en cola
+    if job['status'] not in ['processing', 'queued']:
+        return jsonify({'error': 'El trabajo no se puede cancelar', 'status': job['status']}), 400
+
+    # Activar el evento de cancelación
+    if job_id in cancel_events:
+        cancel_events[job_id].set()
+        jobs[job_id]['message'] = 'Cancelando...'
+        return jsonify({'success': True, 'message': 'Cancelación solicitada'})
+    else:
+        return jsonify({'error': 'No se encontró el evento de cancelación'}), 500
+
+
 @app.route('/api/download/<job_id>')
 def download_video(job_id):
     """Descarga el video generado."""
@@ -1016,4 +1135,4 @@ def download_video(job_id):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
