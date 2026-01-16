@@ -84,6 +84,7 @@ from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeIn, FadeOut, SlideIn
 from PIL import ImageFont
 from functools import lru_cache
 import multiprocessing
+import time as time_module
 from proglog import ProgressBarLogger
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
@@ -98,70 +99,61 @@ class JobProgressLogger(ProgressBarLogger):
         self.jobs_dict = jobs_dict
         self.base_progress = base_progress
         self.max_progress = max_progress
-        self.last_frame = 0
-        self.total_frames = 0
         self.start_time = None
-
-    def callback(self, **changes):
-        """Callback llamado cuando hay cambios en el progreso."""
-        import time
-
-        for parameter, value in changes.items():
-            self.state[parameter] = value
-
-        if self.state.get('state') == 'moviepy':
-            # Capturar información de frames
-            if 'index' in self.state and 'total' in self.state:
-                current = self.state['index']
-                total = self.state['total']
-                self.last_frame = current
-                self.total_frames = total
-
-                if self.start_time is None:
-                    self.start_time = time.time()
-
-                # Calcular progreso real (80-95%)
-                if total > 0:
-                    render_progress = current / total
-                    actual_progress = self.base_progress + int(render_progress * (self.max_progress - self.base_progress))
-
-                    # Calcular velocidad (frames por segundo)
-                    elapsed = time.time() - self.start_time
-                    fps_speed = current / elapsed if elapsed > 0 else 0
-
-                    # Calcular tiempo restante
-                    remaining_frames = total - current
-                    eta = remaining_frames / fps_speed if fps_speed > 0 else 0
-                    eta_min = int(eta // 60)
-                    eta_sec = int(eta % 60)
-
-                    # Crear barra de progreso visual
-                    bar_width = 20
-                    filled = int(bar_width * render_progress)
-                    bar = '█' * filled + '░' * (bar_width - filled)
-
-                    # Actualizar mensaje con información detallada
-                    message = f"Renderizando: {current}/{total} [{bar}] {render_progress*100:.0f}% | {fps_speed:.1f} fps | ETA: {eta_min}:{eta_sec:02d}"
-
-                    self.jobs_dict[self.job_id]['progress'] = actual_progress
-                    self.jobs_dict[self.job_id]['message'] = message
-                    self.jobs_dict[self.job_id]['render_info'] = {
-                        'current_frame': current,
-                        'total_frames': total,
-                        'fps_speed': round(fps_speed, 2),
-                        'eta_seconds': round(eta, 1),
-                        'percent': round(render_progress * 100, 1),
-                    }
+        self.current_bar_total = 0
 
     def bars_callback(self, bar, attr, value, old_value=None):
-        """Callback para actualización de barras de progreso."""
-        if bar == 'frame_index':
-            if attr == 't':
-                self.state['index'] = value
-            elif attr == 'total':
-                self.state['total'] = value
-            self.state['state'] = 'moviepy'
-            self.callback()
+        """Callback llamado cuando hay cambios en las barras de progreso."""
+        super().bars_callback(bar, attr, value, old_value)
+
+        # Solo procesar la barra de frames
+        if bar != 'frame_index':
+            return
+
+        # Obtener información de la barra actual
+        bar_state = self.state.get('bars', {}).get(bar, {})
+        current = bar_state.get('index', 0)
+        total = bar_state.get('total', 0)
+
+        if attr == 'total' and value:
+            self.current_bar_total = value
+            self.start_time = time_module.time()
+            return
+
+        if attr == 'index' and self.current_bar_total > 0:
+            current = value
+            total = self.current_bar_total
+
+            render_progress = current / total if total > 0 else 0
+            actual_progress = self.base_progress + int(render_progress * (self.max_progress - self.base_progress))
+
+            # Calcular velocidad (frames por segundo)
+            elapsed = time_module.time() - self.start_time if self.start_time else 1
+            fps_speed = current / elapsed if elapsed > 0 else 0
+
+            # Calcular tiempo restante
+            remaining_frames = total - current
+            eta = remaining_frames / fps_speed if fps_speed > 0 else 0
+            eta_min = int(eta // 60)
+            eta_sec = int(eta % 60)
+
+            # Crear barra de progreso visual
+            bar_width = 20
+            filled = int(bar_width * render_progress)
+            progress_bar = '█' * filled + '░' * (bar_width - filled)
+
+            # Actualizar mensaje con información detallada
+            message = f"Renderizando: {current}/{total} [{progress_bar}] {render_progress*100:.0f}% | {fps_speed:.1f} fps | ETA: {eta_min}:{eta_sec:02d}"
+
+            self.jobs_dict[self.job_id]['progress'] = actual_progress
+            self.jobs_dict[self.job_id]['message'] = message
+            self.jobs_dict[self.job_id]['render_info'] = {
+                'current_frame': current,
+                'total_frames': total,
+                'fps_speed': round(fps_speed, 2),
+                'eta_seconds': round(eta, 1),
+                'percent': round(render_progress * 100, 1),
+            }
 
 
 # Cache de fuentes PIL para evitar cargarlas repetidamente
