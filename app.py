@@ -84,8 +84,85 @@ from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeIn, FadeOut, SlideIn
 from PIL import ImageFont
 from functools import lru_cache
 import multiprocessing
+from proglog import ProgressBarLogger
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+
+
+class JobProgressLogger(ProgressBarLogger):
+    """Logger personalizado que actualiza el progreso del job con información detallada de moviepy."""
+
+    def __init__(self, job_id: str, jobs_dict: dict, base_progress: int = 80, max_progress: int = 95):
+        super().__init__()
+        self.job_id = job_id
+        self.jobs_dict = jobs_dict
+        self.base_progress = base_progress
+        self.max_progress = max_progress
+        self.last_frame = 0
+        self.total_frames = 0
+        self.start_time = None
+
+    def callback(self, **changes):
+        """Callback llamado cuando hay cambios en el progreso."""
+        import time
+
+        for parameter, value in changes.items():
+            self.state[parameter] = value
+
+        if self.state.get('state') == 'moviepy':
+            # Capturar información de frames
+            if 'index' in self.state and 'total' in self.state:
+                current = self.state['index']
+                total = self.state['total']
+                self.last_frame = current
+                self.total_frames = total
+
+                if self.start_time is None:
+                    self.start_time = time.time()
+
+                # Calcular progreso real (80-95%)
+                if total > 0:
+                    render_progress = current / total
+                    actual_progress = self.base_progress + int(render_progress * (self.max_progress - self.base_progress))
+
+                    # Calcular velocidad (frames por segundo)
+                    elapsed = time.time() - self.start_time
+                    fps_speed = current / elapsed if elapsed > 0 else 0
+
+                    # Calcular tiempo restante
+                    remaining_frames = total - current
+                    eta = remaining_frames / fps_speed if fps_speed > 0 else 0
+                    eta_min = int(eta // 60)
+                    eta_sec = int(eta % 60)
+
+                    # Crear barra de progreso visual
+                    bar_width = 20
+                    filled = int(bar_width * render_progress)
+                    bar = '█' * filled + '░' * (bar_width - filled)
+
+                    # Actualizar mensaje con información detallada
+                    message = f"Renderizando: {current}/{total} [{bar}] {render_progress*100:.0f}% | {fps_speed:.1f} fps | ETA: {eta_min}:{eta_sec:02d}"
+
+                    self.jobs_dict[self.job_id]['progress'] = actual_progress
+                    self.jobs_dict[self.job_id]['message'] = message
+                    self.jobs_dict[self.job_id]['render_info'] = {
+                        'current_frame': current,
+                        'total_frames': total,
+                        'fps_speed': round(fps_speed, 2),
+                        'eta_seconds': round(eta, 1),
+                        'percent': round(render_progress * 100, 1),
+                    }
+
+    def bars_callback(self, bar, attr, value, old_value=None):
+        """Callback para actualización de barras de progreso."""
+        if bar == 'frame_index':
+            if attr == 't':
+                self.state['index'] = value
+            elif attr == 'total':
+                self.state['total'] = value
+            self.state['state'] = 'moviepy'
+            self.callback()
+
 
 # Cache de fuentes PIL para evitar cargarlas repetidamente
 _font_cache = {}
@@ -413,7 +490,7 @@ def create_title_clip(config: dict, resolution: tuple[int, int]) -> CompositeVid
         method='caption',
         size=(resolution[0] - 100, None),
         text_align='center',
-        margin=(10, 10),
+        margin=(10, int(config['font_size'] * 0.3)),
     )
     txt_clip = txt_clip.with_duration(duration)
     txt_clip = txt_clip.with_position('center')
@@ -511,7 +588,7 @@ def create_typewriter_title_clip(config: dict, resolution: tuple[int, int], bg_c
             method='caption',
             size=(resolution[0] - 100, None),
             text_align='center',
-            margin=(10, 10),
+            margin=(10, int(config['font_size'] * 0.3)),
         )
         txt_clip = txt_clip.with_duration(clip_duration)
         start_time = (i - 1) * time_per_char
@@ -678,10 +755,13 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
             video = concatenate_videoclips(clips_to_concat, method="compose")
 
         # Exportar video sin audio (más rápido)
-        jobs[job_id]['message'] = 'Exportando video...'
+        jobs[job_id]['message'] = 'Iniciando renderizado...'
         jobs[job_id]['progress'] = 80
 
         temp_video_path = output_path.replace('.mp4', '_temp_video.mp4')
+
+        # Crear logger personalizado para capturar el progreso real
+        progress_logger = JobProgressLogger(job_id, jobs, base_progress=80, max_progress=95)
 
         video.write_videofile(
             temp_video_path,
@@ -690,7 +770,7 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
             audio=False,  # Sin audio = mucho más rápido
             threads=FFMPEG_THREADS,
             preset="ultrafast",
-            logger="bar",
+            logger=progress_logger,
             ffmpeg_params=[
                 "-crf", "32",
                 "-tune", "zerolatency",
@@ -894,6 +974,9 @@ def get_progress(job_id):
                     'progress': job['progress'],
                     'message': job['message'],
                 }
+                # Incluir información detallada de renderizado si está disponible
+                if 'render_info' in job:
+                    data['render_info'] = job['render_info']
                 yield f"data: {json.dumps(data)}\n\n"
 
                 if job['status'] in ['completed', 'error']:
