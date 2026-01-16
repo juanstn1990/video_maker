@@ -22,6 +22,7 @@ from moviepy import (
     ColorClip,
 )
 from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeIn, FadeOut, SlideIn, SlideOut
+from PIL import ImageFont
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
@@ -124,41 +125,56 @@ def parse_srt(srt_path: str) -> list[dict]:
 
 
 
-def wrap_text(text: str, font_size: int, width: int) -> str:
+def wrap_text(text: str, font_size: int, width: int, font_path: str) -> str:
     """
     Envuelve el texto para que quepan palabras completas sin partir.
-    Esto previene que las palabras se corten a mitad.
-    
+    Usa PIL para calcular el ancho real del texto con la fuente específica.
+
     Args:
         text: Texto a envolver
         font_size: Tamaño de fuente en píxeles
         width: Ancho disponible en píxeles
-    
+        font_path: Ruta a la fuente TTF
+
     Returns:
         Texto con saltos de línea (\n) para envolver adecuadamente
     """
     words = text.split()
     lines = []
     current_line = []
-    
-    # Estimación aproximada: cada carácter ocupa ~0.6 * font_size píxeles
-    # Esto es una aproximación, pero funciona bien para la mayoría de fuentes
-    chars_per_line = max(1, int(width / (font_size * 0.55)))
-    
+
+    # Cargar la fuente para calcular anchos reales
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        # Fallback a estimación si no se puede cargar la fuente
+        font = None
+
+    def get_text_width(txt: str) -> int:
+        if font:
+            bbox = font.getbbox(txt)
+            return bbox[2] - bbox[0]  # right - left
+        else:
+            # Fallback conservador
+            return len(txt) * font_size * 0.65
+
     for word in words:
         current_line.append(word)
         current_line_text = ' '.join(current_line)
-        
-        # Si la línea es demasiado larga, mover la palabra a la siguiente línea
-        if len(current_line_text) > chars_per_line:
+
+        # Calcular el ancho real del texto
+        text_width = get_text_width(current_line_text)
+
+        # Si la línea es demasiado ancha, mover la palabra a la siguiente línea
+        if text_width > width:
             current_line.pop()  # Remover la última palabra
             if current_line:
                 lines.append(' '.join(current_line))
             current_line = [word]
-    
+
     if current_line:
         lines.append(' '.join(current_line))
-    
+
     return '\n'.join(lines)
 
 
@@ -189,7 +205,7 @@ def create_subtitle_clips(
         for i in range(1, len(text) + 1):
             partial_text = text[:i]
             # Envolver el texto parcial para evitar que se corten palabras
-            wrapped_partial = wrap_text(partial_text, font_size, resolution[0] - 80)
+            wrapped_partial = wrap_text(partial_text, font_size, resolution[0] - 80, font_path)
 
             if i < len(text):
                 clip_duration = time_per_char
@@ -226,8 +242,11 @@ def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 
 
 def create_title_clip(config: dict, resolution: tuple[int, int]) -> CompositeVideoClip:
-    """Crea un clip de título (intro/outro) con fondo de color o imagen."""
+    """Crea un clip de título (intro/outro) con fondo de color o imagen y animaciones."""
     duration = config['duration']
+    animation_in = config.get('animation_in', 'none')
+    animation_out = config.get('animation_out', 'none')
+    animation_duration = min(1.0, duration / 3)  # Duracion de animacion: 1s o 1/3 del total
 
     # Crear fondo (imagen o color)
     if config.get('bg_image') and Path(config['bg_image']).exists():
@@ -253,7 +272,11 @@ def create_title_clip(config: dict, resolution: tuple[int, int]) -> CompositeVid
         bg_color = hex_to_rgb(config['bg_color'])
         bg_clip = ColorClip(size=resolution, color=bg_color, duration=duration)
 
-    # Crear texto
+    # Manejar animacion typewriter
+    if animation_in == 'typewriter':
+        return create_typewriter_title_clip(config, resolution, bg_clip, animation_out, animation_duration)
+
+    # Crear texto base
     txt_clip = TextClip(
         text=config['text'],
         font_size=config['font_size'],
@@ -267,8 +290,113 @@ def create_title_clip(config: dict, resolution: tuple[int, int]) -> CompositeVid
     txt_clip = txt_clip.with_duration(duration)
     txt_clip = txt_clip.with_position('center')
 
+    # Aplicar animaciones de entrada
+    txt_clip = apply_text_animation_in(txt_clip, animation_in, animation_duration, resolution)
+
+    # Aplicar animaciones de salida
+    txt_clip = apply_text_animation_out(txt_clip, animation_out, animation_duration, duration, resolution)
+
     # Componer
     return CompositeVideoClip([bg_clip, txt_clip], size=resolution).with_duration(duration)
+
+
+def apply_text_animation_in(clip, animation_type: str, anim_duration: float, resolution: tuple[int, int]):
+    """Aplica animacion de entrada al clip de texto."""
+    if animation_type == 'none':
+        return clip
+    elif animation_type == 'fade':
+        return clip.with_effects([FadeIn(anim_duration)])
+    elif animation_type == 'slide_left':
+        return clip.with_effects([SlideIn(anim_duration, 'left')])
+    elif animation_type == 'slide_right':
+        return clip.with_effects([SlideIn(anim_duration, 'right')])
+    elif animation_type == 'slide_top':
+        return clip.with_effects([SlideIn(anim_duration, 'top')])
+    elif animation_type == 'slide_bottom':
+        return clip.with_effects([SlideIn(anim_duration, 'bottom')])
+    elif animation_type == 'zoom':
+        # Zoom in: empezar pequeño y crecer
+        def zoom_in_func(t):
+            if t < anim_duration:
+                scale = 0.3 + (0.7 * t / anim_duration)
+            else:
+                scale = 1.0
+            return scale
+
+        return clip.resized(zoom_in_func)
+    return clip
+
+
+def apply_text_animation_out(clip, animation_type: str, anim_duration: float, total_duration: float, resolution: tuple[int, int]):
+    """Aplica animacion de salida al clip de texto."""
+    if animation_type == 'none':
+        return clip
+    elif animation_type == 'fade':
+        return clip.with_effects([FadeOut(anim_duration)])
+    elif animation_type == 'slide_left':
+        return clip.with_effects([SlideOut(anim_duration, 'left')])
+    elif animation_type == 'slide_right':
+        return clip.with_effects([SlideOut(anim_duration, 'right')])
+    elif animation_type == 'slide_top':
+        return clip.with_effects([SlideOut(anim_duration, 'top')])
+    elif animation_type == 'slide_bottom':
+        return clip.with_effects([SlideOut(anim_duration, 'bottom')])
+    elif animation_type == 'zoom':
+        # Zoom out: terminar pequeño
+        start_out = total_duration - anim_duration
+
+        def zoom_out_func(t):
+            if t > start_out:
+                progress = (t - start_out) / anim_duration
+                scale = 1.0 - (0.7 * progress)
+            else:
+                scale = 1.0
+            return scale
+
+        return clip.resized(zoom_out_func)
+    return clip
+
+
+def create_typewriter_title_clip(config: dict, resolution: tuple[int, int], bg_clip, animation_out: str, anim_duration: float):
+    """Crea un clip de titulo con efecto typewriter."""
+    duration = config['duration']
+    text = config['text']
+    typewriter_ratio = 0.6  # 60% para escribir, 40% para mantener
+    typewriter_duration = duration * typewriter_ratio
+    hold_duration = duration * (1 - typewriter_ratio)
+    time_per_char = typewriter_duration / len(text)
+
+    text_clips = []
+    for i in range(1, len(text) + 1):
+        partial_text = text[:i]
+
+        if i < len(text):
+            clip_duration = time_per_char
+        else:
+            clip_duration = time_per_char + hold_duration
+
+        txt_clip = TextClip(
+            text=partial_text,
+            font_size=config['font_size'],
+            color=config['font_color'],
+            font=config['font_path'],
+            method='caption',
+            size=(resolution[0] - 100, None),
+            text_align='center',
+            margin=(10, 10),
+        )
+        txt_clip = txt_clip.with_duration(clip_duration)
+        start_time = (i - 1) * time_per_char
+        txt_clip = txt_clip.with_start(start_time)
+        txt_clip = txt_clip.with_position('center')
+
+        # Aplicar animacion de salida solo al ultimo clip
+        if i == len(text) and animation_out != 'none':
+            txt_clip = apply_text_animation_out(txt_clip, animation_out, anim_duration, clip_duration, resolution)
+
+        text_clips.append(txt_clip)
+
+    return CompositeVideoClip([bg_clip] + text_clips, size=resolution).with_duration(duration)
 
 
 def get_transition_effects(transition_type: str, transition_duration: float, resolution: tuple[int, int]):
@@ -537,6 +665,8 @@ def upload_files():
             'font_color': request.form.get('intro_color', '#ffffff'),
             'bg_color': request.form.get('intro_bg_color', '#000000'),
             'bg_image': None,
+            'animation_in': request.form.get('intro_animation_in', 'none'),
+            'animation_out': request.form.get('intro_animation_out', 'none'),
         }
         # Guardar imagen de fondo de intro si existe
         intro_bg_image = request.files.get('intro_bg_image')
@@ -559,6 +689,8 @@ def upload_files():
             'font_color': request.form.get('outro_color', '#ffffff'),
             'bg_color': request.form.get('outro_bg_color', '#000000'),
             'bg_image': None,
+            'animation_in': request.form.get('outro_animation_in', 'none'),
+            'animation_out': request.form.get('outro_animation_out', 'none'),
         }
         # Guardar imagen de fondo de outro si existe
         outro_bg_image = request.files.get('outro_bg_image')

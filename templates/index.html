@@ -631,6 +631,31 @@
                     <input type="file" id="introBgImage" accept="image/*" class="file-input-styled">
                     <div id="introBgImagePreview" class="bg-image-preview"></div>
                 </div>
+                <div class="option-group">
+                    <label for="introAnimationIn">Animacion de entrada</label>
+                    <select id="introAnimationIn">
+                        <option value="none">Sin animacion</option>
+                        <option value="fade">Fade In</option>
+                        <option value="slide_left">Deslizar desde izquierda</option>
+                        <option value="slide_right">Deslizar desde derecha</option>
+                        <option value="slide_top">Deslizar desde arriba</option>
+                        <option value="slide_bottom">Deslizar desde abajo</option>
+                        <option value="zoom">Zoom In</option>
+                        <option value="typewriter">Maquina de escribir</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="introAnimationOut">Animacion de salida</label>
+                    <select id="introAnimationOut">
+                        <option value="none">Sin animacion</option>
+                        <option value="fade">Fade Out</option>
+                        <option value="slide_left">Deslizar hacia izquierda</option>
+                        <option value="slide_right">Deslizar hacia derecha</option>
+                        <option value="slide_top">Deslizar hacia arriba</option>
+                        <option value="slide_bottom">Deslizar hacia abajo</option>
+                        <option value="zoom">Zoom Out</option>
+                    </select>
+                </div>
             </div>
 
             <h3 class="subsection-title">Mensaje de Final (Outro)</h3>
@@ -691,6 +716,31 @@
                     <label for="outroBgImage">Imagen de fondo (opcional)</label>
                     <input type="file" id="outroBgImage" accept="image/*" class="file-input-styled">
                     <div id="outroBgImagePreview" class="bg-image-preview"></div>
+                </div>
+                <div class="option-group">
+                    <label for="outroAnimationIn">Animacion de entrada</label>
+                    <select id="outroAnimationIn">
+                        <option value="none">Sin animacion</option>
+                        <option value="fade">Fade In</option>
+                        <option value="slide_left">Deslizar desde izquierda</option>
+                        <option value="slide_right">Deslizar desde derecha</option>
+                        <option value="slide_top">Deslizar desde arriba</option>
+                        <option value="slide_bottom">Deslizar desde abajo</option>
+                        <option value="zoom">Zoom In</option>
+                        <option value="typewriter">Maquina de escribir</option>
+                    </select>
+                </div>
+                <div class="option-group">
+                    <label for="outroAnimationOut">Animacion de salida</label>
+                    <select id="outroAnimationOut">
+                        <option value="none">Sin animacion</option>
+                        <option value="fade">Fade Out</option>
+                        <option value="slide_left">Deslizar hacia izquierda</option>
+                        <option value="slide_right">Deslizar hacia derecha</option>
+                        <option value="slide_top">Deslizar hacia arriba</option>
+                        <option value="slide_bottom">Deslizar hacia abajo</option>
+                        <option value="zoom">Zoom Out</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -940,6 +990,8 @@
             formData.append('intro_size', document.getElementById('introSize').value);
             formData.append('intro_color', document.getElementById('introColor').value);
             formData.append('intro_bg_color', document.getElementById('introBgColor').value);
+            formData.append('intro_animation_in', document.getElementById('introAnimationIn').value);
+            formData.append('intro_animation_out', document.getElementById('introAnimationOut').value);
             if (introBgImage) {
                 formData.append('intro_bg_image', introBgImage);
             }
@@ -951,6 +1003,8 @@
             formData.append('outro_size', document.getElementById('outroSize').value);
             formData.append('outro_color', document.getElementById('outroColor').value);
             formData.append('outro_bg_color', document.getElementById('outroBgColor').value);
+            formData.append('outro_animation_in', document.getElementById('outroAnimationIn').value);
+            formData.append('outro_animation_out', document.getElementById('outroAnimationOut').value);
             if (outroBgImage) {
                 formData.append('outro_bg_image', outroBgImage);
             }

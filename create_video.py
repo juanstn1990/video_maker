@@ -16,6 +16,7 @@ from moviepy import (
     TextClip,
 )
 from moviepy.video.fx import CrossFadeIn, CrossFadeOut
+from PIL import ImageFont
 
 
 def get_images(folder: str) -> list[str]:
@@ -85,41 +86,56 @@ def parse_srt(srt_path: str) -> list[dict]:
     return subtitles
 
 
-def wrap_text(text: str, font_size: int, width: int) -> str:
+def wrap_text(text: str, font_size: int, width: int, font_path: str) -> str:
     """
     Envuelve el texto para que quepan palabras completas sin partir.
-    Esto previene que las palabras se corten a mitad.
-    
+    Usa PIL para calcular el ancho real del texto con la fuente específica.
+
     Args:
         text: Texto a envolver
         font_size: Tamaño de fuente en píxeles
         width: Ancho disponible en píxeles
-    
+        font_path: Ruta a la fuente TTF
+
     Returns:
         Texto con saltos de línea (\n) para envolver adecuadamente
     """
     words = text.split()
     lines = []
     current_line = []
-    
-    # Estimación aproximada: cada carácter ocupa ~0.6 * font_size píxeles
-    # Esto es una aproximación, pero funciona bien para la mayoría de fuentes
-    chars_per_line = max(1, int(width / (font_size * 0.55)))
-    
+
+    # Cargar la fuente para calcular anchos reales
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        # Fallback a estimación si no se puede cargar la fuente
+        font = None
+
+    def get_text_width(txt: str) -> int:
+        if font:
+            bbox = font.getbbox(txt)
+            return bbox[2] - bbox[0]  # right - left
+        else:
+            # Fallback conservador
+            return len(txt) * font_size * 0.65
+
     for word in words:
         current_line.append(word)
         current_line_text = ' '.join(current_line)
-        
-        # Si la línea es demasiado larga, mover la palabra a la siguiente línea
-        if len(current_line_text) > chars_per_line:
+
+        # Calcular el ancho real del texto
+        text_width = get_text_width(current_line_text)
+
+        # Si la línea es demasiado ancha, mover la palabra a la siguiente línea
+        if text_width > width:
             current_line.pop()  # Remover la última palabra
             if current_line:
                 lines.append(' '.join(current_line))
             current_line = [word]
-    
+
     if current_line:
         lines.append(' '.join(current_line))
-    
+
     return '\n'.join(lines)
 
 
@@ -130,6 +146,7 @@ def create_subtitle_clips(
     font_color: str = 'white',
     stroke_color: str = 'black',
     stroke_width: int = 2,
+    font_path: str = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     typewriter_ratio: float = 0.7,
 ) -> list:
     """
@@ -147,9 +164,6 @@ def create_subtitle_clips(
         if not text:
             continue
 
-        # Pre-envolver el texto para evitar que se corten las palabras
-        wrapped_text = wrap_text(text, font_size, resolution[0] - 80)
-
         # Tiempo para el efecto typewriter y tiempo que el texto permanece completo
         typewriter_duration = duration * typewriter_ratio
         hold_duration = duration * (1 - typewriter_ratio)
@@ -160,8 +174,8 @@ def create_subtitle_clips(
         # Crear un clip para cada etapa del texto (letra por letra)
         for i in range(1, len(text) + 1):
             partial_text = text[:i]
-            # Envolver el texto parcial también para mantener consistencia
-            wrapped_partial = wrap_text(partial_text, font_size, resolution[0] - 80)
+            # Envolver el texto parcial para evitar que se corten palabras
+            wrapped_partial = wrap_text(partial_text, font_size, resolution[0] - 80, font_path)
 
             # Calcular duración de este clip
             if i < len(text):
@@ -176,7 +190,7 @@ def create_subtitle_clips(
                 color=font_color,
                 stroke_color=stroke_color,
                 stroke_width=stroke_width,
-                font='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                font=font_path,
                 method='caption',
                 size=(resolution[0] - 80, None),
                 text_align='center',
