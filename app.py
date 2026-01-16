@@ -5,6 +5,65 @@ Aplicación web para crear videos a partir de imágenes y audio.
 
 import os
 import sys
+import subprocess
+import shutil
+
+# === CONFIGURAR FFMPEG ANTES DE IMPORTAR MOVIEPY ===
+def check_nvenc_available() -> bool:
+    """Verifica si el codificador NVENC está disponible y funcional en FFmpeg."""
+    try:
+        ffmpeg_path = shutil.which('ffmpeg')
+        if not ffmpeg_path:
+            return False
+
+        # Primero verificar si el encoder está listado
+        result = subprocess.run(
+            [ffmpeg_path, '-encoders'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if 'h264_nvenc' not in result.stdout:
+            return False
+
+        # Hacer una prueba real de encoding para verificar que CUDA funciona
+        # Genera un frame negro de 64x64 y lo codifica con nvenc
+        test_result = subprocess.run(
+            [
+                ffmpeg_path,
+                '-f', 'lavfi',
+                '-i', 'color=black:s=64x64:d=0.1',
+                '-c:v', 'h264_nvenc',
+                '-f', 'null',
+                '-'
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        return test_result.returncode == 0
+    except Exception:
+        return False
+
+SYSTEM_FFMPEG = shutil.which('ffmpeg')
+NVENC_AVAILABLE = check_nvenc_available()
+
+# Forzar MoviePy/imageio a usar el FFmpeg del sistema ANTES de importar
+if SYSTEM_FFMPEG:
+    os.environ['IMAGEIO_FFMPEG_EXE'] = SYSTEM_FFMPEG
+
+# Configurar LD_LIBRARY_PATH para que FFmpeg encuentre libcuda (necesario en WSL2)
+WSL_LIB_PATH = '/usr/lib/wsl/lib'
+if os.path.exists(WSL_LIB_PATH):
+    current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+    if WSL_LIB_PATH not in current_ld_path:
+        os.environ['LD_LIBRARY_PATH'] = f"{WSL_LIB_PATH}:{current_ld_path}" if current_ld_path else WSL_LIB_PATH
+    print(f"LD_LIBRARY_PATH configurado para CUDA: {os.environ['LD_LIBRARY_PATH']}")
+
+print(f"FFmpeg: {SYSTEM_FFMPEG}")
+print(f"NVENC disponible: {NVENC_AVAILABLE}")
+# === FIN CONFIGURACIÓN FFMPEG ===
+
 import uuid
 import json
 import threading
@@ -23,8 +82,26 @@ from moviepy import (
 )
 from moviepy.video.fx import CrossFadeIn, CrossFadeOut, FadeIn, FadeOut, SlideIn, SlideOut
 from PIL import ImageFont
+from functools import lru_cache
+import multiprocessing
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+
+# Cache de fuentes PIL para evitar cargarlas repetidamente
+_font_cache = {}
+
+def get_cached_font(font_path: str, font_size: int) -> ImageFont.FreeTypeFont:
+    """Obtiene una fuente del cache o la carga si no existe."""
+    key = (font_path, font_size)
+    if key not in _font_cache:
+        try:
+            _font_cache[key] = ImageFont.truetype(font_path, font_size)
+        except Exception:
+            _font_cache[key] = None
+    return _font_cache[key]
+
+# Número óptimo de threads para FFmpeg
+FFMPEG_THREADS = max(4, multiprocessing.cpu_count())
 CORS(app)
 
 # Configuración
@@ -143,12 +220,8 @@ def wrap_text(text: str, font_size: int, width: int, font_path: str) -> str:
     lines = []
     current_line = []
 
-    # Cargar la fuente para calcular anchos reales
-    try:
-        font = ImageFont.truetype(font_path, font_size)
-    except Exception:
-        # Fallback a estimación si no se puede cargar la fuente
-        font = None
+    # Usar fuente cacheada para evitar cargarla repetidamente
+    font = get_cached_font(font_path, font_size)
 
     def get_text_width(txt: str) -> int:
         if font:
@@ -187,8 +260,15 @@ def create_subtitle_clips(
     stroke_width: int = 2,
     font_path: str = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
     typewriter_ratio: float = 0.7,
+    max_clips_per_subtitle: int = 30,
 ) -> list:
-    """Crea clips de texto para cada subtítulo con efecto typewriter."""
+    """
+    Crea clips de texto para cada subtítulo con efecto typewriter optimizado.
+
+    Optimización: En lugar de crear un clip por cada caracter, agrupa caracteres
+    para crear un máximo de max_clips_per_subtitle clips por subtítulo.
+    Esto reduce dramáticamente el uso de memoria y tiempo de composición.
+    """
     subtitle_clips = []
 
     for sub in subtitles:
@@ -200,17 +280,30 @@ def create_subtitle_clips(
 
         typewriter_duration = duration * typewriter_ratio
         hold_duration = duration * (1 - typewriter_ratio)
-        time_per_char = typewriter_duration / len(text)
 
-        for i in range(1, len(text) + 1):
-            partial_text = text[:i]
+        # Optimización: calcular el paso óptimo de caracteres
+        # En lugar de crear un clip por caracter, agrupamos para limitar clips
+        num_chars = len(text)
+        char_step = max(1, num_chars // max_clips_per_subtitle)
+
+        # Crear lista de posiciones donde crearemos clips
+        # Siempre incluimos el último caracter para mostrar el texto completo
+        positions = list(range(char_step, num_chars, char_step))
+        if not positions or positions[-1] != num_chars:
+            positions.append(num_chars)
+
+        time_per_step = typewriter_duration / len(positions) if positions else typewriter_duration
+
+        for idx, char_pos in enumerate(positions):
+            partial_text = text[:char_pos]
             # Envolver el texto parcial para evitar que se corten palabras
             wrapped_partial = wrap_text(partial_text, font_size, resolution[0] - 80, font_path)
 
-            if i < len(text):
-                clip_duration = time_per_char
+            is_last = (idx == len(positions) - 1)
+            if is_last:
+                clip_duration = time_per_step + hold_duration
             else:
-                clip_duration = time_per_char + hold_duration
+                clip_duration = time_per_step
 
             txt_clip = TextClip(
                 text=wrapped_partial,
@@ -226,7 +319,7 @@ def create_subtitle_clips(
             )
 
             txt_clip = txt_clip.with_duration(clip_duration)
-            start_time = sub['start'] + (i - 1) * time_per_char
+            start_time = sub['start'] + idx * time_per_step
             txt_clip = txt_clip.with_start(start_time)
             txt_clip = txt_clip.with_position('center')
 
@@ -435,7 +528,7 @@ def get_transition_effects(transition_type: str, transition_duration: float, res
 
 def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str = None,
                   resolution: tuple[int, int] = (1080, 1920), transition_type: str = 'crossfade',
-                  transition_duration: float = 0.5, fps: int = 24, subtitle_config: dict = None,
+                  transition_duration: float = 0.5, fps: int = 4, subtitle_config: dict = None,
                   intro_config: dict = None, outro_config: dict = None):
     """Procesa el video en un hilo separado."""
     try:
@@ -547,19 +640,46 @@ def process_video(job_id: str, images: list[str], audio_path: str, srt_path: str
             jobs[job_id]['progress'] = 79
             video = concatenate_videoclips(clips_to_concat, method="compose")
 
-        # Exportar
+        # Exportar video sin audio (más rápido)
         jobs[job_id]['message'] = 'Exportando video...'
         jobs[job_id]['progress'] = 80
 
+        temp_video_path = output_path.replace('.mp4', '_temp_video.mp4')
+
         video.write_videofile(
-            output_path,
+            temp_video_path,
             fps=fps,
             codec="libx264",
-            audio_codec="aac",
-            threads=4,
-            preset="medium",
-            logger=None,
+            audio=False,  # Sin audio = mucho más rápido
+            threads=FFMPEG_THREADS,
+            preset="ultrafast",
+            logger="bar",
+            ffmpeg_params=[
+                "-crf", "32",
+                "-tune", "zerolatency",
+                "-pix_fmt", "yuv420p",
+                "-bf", "0",
+            ],
         )
+
+        # Combinar video + audio con ffmpeg (instantáneo)
+        jobs[job_id]['message'] = 'Combinando audio...'
+        jobs[job_id]['progress'] = 95
+
+        subprocess.run([
+            SYSTEM_FFMPEG,
+            "-y",
+            "-i", temp_video_path,
+            "-i", audio_path,
+            "-c:v", "copy",  # No re-codifica video
+            "-c:a", "aac",
+            "-shortest",
+            "-movflags", "+faststart",
+            output_path
+        ], check=True, capture_output=True)
+
+        # Eliminar video temporal
+        os.remove(temp_video_path)
 
         # Limpiar
         audio.close()
@@ -635,7 +755,7 @@ def upload_files():
     width, height = map(int, resolution_str.split('x'))
     transition_type = request.form.get('transition_type', 'crossfade')
     transition = float(request.form.get('transition', 0.5))
-    fps = int(request.form.get('fps', 24))
+    fps = int(request.form.get('fps', 4))
 
     # Obtener configuración de subtítulos
     subtitle_font = request.form.get('subtitle_font', 'DejaVuSans-Bold')
@@ -780,4 +900,4 @@ def download_video(job_id):
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
