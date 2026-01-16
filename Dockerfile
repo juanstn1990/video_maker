@@ -119,7 +119,7 @@ COPY static/ static/
 RUN mkdir -p /tmp/video_creator
 
 # Exponer puerto
-EXPOSE 5000
+EXPOSE 80
 
 # Variables de entorno
 ENV FLASK_APP=app.py
