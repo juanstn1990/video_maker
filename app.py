@@ -1134,5 +1134,164 @@ def download_video(job_id):
     )
 
 
+# === MARCA DE AGUA DE AUDIO ===
+
+WATERMARK_FILE = Path(__file__).parent / 'marca_agua.mp3'
+
+# Almacén de trabajos de marca de agua
+watermark_jobs = {}
+
+
+@app.route('/watermark')
+def watermark_page():
+    """Página de marca de agua de audio."""
+    return render_template('watermark.html')
+
+
+@app.route('/api/watermark', methods=['POST'])
+def watermark_upload():
+    """Sube una canción y la mezcla con la marca de agua cada N segundos."""
+    if not WATERMARK_FILE.exists():
+        return jsonify({'error': 'Archivo marca_agua.mp3 no encontrado en el servidor'}), 500
+
+    audio = request.files.get('audio')
+    if not audio or not audio.filename:
+        return jsonify({'error': 'Se requiere un archivo de audio'}), 400
+
+    interval = int(request.form.get('interval', 10))
+    volume = float(request.form.get('volume', 0.3))
+
+    job_id = str(uuid.uuid4())
+    job_folder = UPLOAD_FOLDER / f'wm_{job_id}'
+    job_folder.mkdir(parents=True, exist_ok=True)
+
+    # Guardar audio subido
+    filename = secure_filename(audio.filename)
+    input_path = str(job_folder / filename)
+    audio.save(input_path)
+
+    output_path = str(job_folder / f'watermarked_{filename}')
+
+    watermark_jobs[job_id] = {
+        'status': 'processing',
+        'progress': 0,
+        'message': 'Procesando...',
+        'output_file': None,
+        'output_name': f'watermarked_{filename}',
+    }
+
+    thread = threading.Thread(
+        target=process_watermark,
+        args=(job_id, input_path, output_path, interval, volume)
+    )
+    thread.start()
+
+    return jsonify({'job_id': job_id})
+
+
+def process_watermark(job_id: str, input_path: str, output_path: str,
+                      interval: int, volume: float):
+    """Mezcla la marca de agua en la canción cada N segundos."""
+    try:
+        watermark_jobs[job_id]['message'] = 'Obteniendo duración del audio...'
+        watermark_jobs[job_id]['progress'] = 10
+
+        # Obtener duración con ffprobe
+        result = subprocess.run(
+            [SYSTEM_FFMPEG.replace('ffmpeg', 'ffprobe'),
+             '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', input_path],
+            capture_output=True, text=True, timeout=30
+        )
+        duration = float(result.stdout.strip())
+
+        watermark_jobs[job_id]['message'] = 'Mezclando marca de agua...'
+        watermark_jobs[job_id]['progress'] = 30
+
+        # Calcular cuántas marcas de agua insertar
+        wm_path = str(WATERMARK_FILE)
+        num_watermarks = int(duration // interval)
+        if num_watermarks < 1:
+            num_watermarks = 1
+
+        # Construir filtro complejo de ffmpeg
+        # Cada copia de la marca de agua se retrasa N*intervalo segundos
+        filter_inputs = []
+        filter_parts = []
+
+        for i in range(num_watermarks):
+            delay_ms = i * interval * 1000
+            filter_parts.append(
+                f"[1:a]atrim=start=0,asetpts=PTS-STARTPTS,"
+                f"adelay={delay_ms}|{delay_ms},"
+                f"volume={volume}[wm{i}]"
+            )
+            filter_inputs.append(f"[wm{i}]")
+
+        # Mezclar todo: canción original + todas las copias de marca de agua
+        all_inputs = "[0:a]" + "".join(filter_inputs)
+        mix_count = 1 + num_watermarks
+        filter_complex = ";".join(filter_parts)
+        filter_complex += f";{all_inputs}amix=inputs={mix_count}:duration=first:dropout_transition=0:normalize=0[out]"
+
+        ffmpeg_cmd = [
+            SYSTEM_FFMPEG,
+            '-y',
+            '-i', input_path,
+            '-i', wm_path,
+            '-filter_complex', filter_complex,
+            '-map', '[out]',
+            '-c:a', 'libmp3lame',
+            '-q:a', '2',
+            output_path
+        ]
+
+        watermark_jobs[job_id]['progress'] = 50
+
+        proc = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=600)
+
+        if proc.returncode != 0:
+            raise Exception(f'FFmpeg error: {proc.stderr[-500:]}')
+
+        watermark_jobs[job_id]['status'] = 'completed'
+        watermark_jobs[job_id]['progress'] = 100
+        watermark_jobs[job_id]['message'] = 'Audio con marca de agua creado!'
+        watermark_jobs[job_id]['output_file'] = output_path
+
+    except Exception as e:
+        watermark_jobs[job_id]['status'] = 'error'
+        watermark_jobs[job_id]['message'] = f'Error: {str(e)}'
+        watermark_jobs[job_id]['progress'] = 0
+
+
+@app.route('/api/watermark/status/<job_id>')
+def watermark_status(job_id):
+    """Estado de un trabajo de marca de agua."""
+    if job_id not in watermark_jobs:
+        return jsonify({'error': 'Trabajo no encontrado'}), 404
+    job = watermark_jobs[job_id]
+    return jsonify({
+        'status': job['status'],
+        'progress': job['progress'],
+        'message': job['message'],
+    })
+
+
+@app.route('/api/watermark/download/<job_id>')
+def watermark_download(job_id):
+    """Descarga el audio con marca de agua."""
+    if job_id not in watermark_jobs:
+        return jsonify({'error': 'Trabajo no encontrado'}), 404
+    job = watermark_jobs[job_id]
+    if job['status'] != 'completed' or not job['output_file']:
+        return jsonify({'error': 'Audio no disponible'}), 400
+    return send_file(
+        job['output_file'],
+        as_attachment=True,
+        download_name=job['output_name'],
+        mimetype='audio/mpeg'
+    )
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80, debug=False, threaded=True)

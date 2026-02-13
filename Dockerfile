@@ -112,6 +112,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar el codigo de la aplicacion
 COPY app.py .
+COPY marca_agua.mp3 .
 COPY templates/ templates/
 COPY static/ static/
 

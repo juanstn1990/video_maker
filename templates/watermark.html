@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marca de Agua de Audio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+            background: linear-gradient(90deg, #e94560, #0f3460);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .back-link a {
+            color: #aaa;
+            text-decoration: none;
+            font-size: 0.95em;
+            transition: color 0.3s;
+        }
+
+        .back-link a:hover {
+            color: #e94560;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section h2 {
+            margin-bottom: 20px;
+            color: #e94560;
+            font-size: 1.3em;
+        }
+
+        .drop-zone {
+            border: 3px dashed rgba(233, 69, 96, 0.5);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(233, 69, 96, 0.05);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.15);
+            transform: scale(1.01);
+        }
+
+        .drop-zone p {
+            color: #aaa;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .file-info .icon {
+            font-size: 2em;
+        }
+
+        .file-info .details {
+            flex: 1;
+        }
+
+        .file-info .name {
+            font-weight: bold;
+        }
+
+        .file-info .size {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .file-info .remove-file {
+            background: #e94560;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-info .remove-file:hover {
+            background: #d63850;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .option-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        .option-group select,
+        .option-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 1em;
+        }
+
+        .option-group select:focus,
+        .option-group input:focus {
+            outline: none;
+            border-color: #e94560;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #e94560, #0f3460);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 30px auto 0;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-section {
+            display: none;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .progress-bar-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            height: 30px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #0f3460);
+            border-radius: 25px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            min-width: 50px;
+        }
+
+        .status-message {
+            text-align: center;
+            color: #aaa;
+            margin-top: 10px;
+        }
+
+        .download-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .btn-download {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+        }
+
+        .instructions {
+            background: rgba(233, 69, 96, 0.1);
+            border-left: 4px solid #e94560;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .instructions p {
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .processing .status-message {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Marca de Agua de Audio</h1>
+        <div class="back-link">
+            <a href="/">&larr; Volver al Creador de Videos</a>
+        </div>
+
+        <div class="instructions">
+            <p><strong>Instrucciones:</strong> Sube una cancion en MP3 y se mezclara automaticamente
+            con el archivo <code>marca_agua.mp3</code> cada cierto intervalo de segundos.
+            Puedes ajustar el intervalo y el volumen de la marca de agua.</p>
+        </div>
+
+        <!-- Subir cancion -->
+        <div class="section">
+            <h2>1. Cancion</h2>
+            <div class="drop-zone" id="audioDropZone">
+                <div class="icon">🎵</div>
+                <p>Arrastra tu cancion aqui o haz clic para seleccionar</p>
+                <p style="font-size: 0.9em;">Formatos: MP3, WAV, AAC, OGG</p>
+                <input type="file" id="audioInput" accept="audio/*">
+            </div>
+            <div id="audioInfo"></div>
+        </div>
+
+        <!-- Opciones -->
+        <div class="section">
+            <h2>2. Opciones</h2>
+            <div class="options-grid">
+                <div class="option-group">
+                    <label for="interval">Intervalo de marca de agua (seg)</label>
+                    <input type="number" id="interval" value="8" min="3" max="120" step="1">
+                </div>
+                <div class="option-group">
+                    <label for="volume">Volumen de marca de agua</label>
+                    <select id="volume">
+                        <option value="0.15">Muy bajo (15%)</option>
+                        <option value="0.3">Bajo (30%)</option>
+                        <option value="0.5">Medio (50%)</option>
+                        <option value="0.7">Alto (70%)</option>
+                        <option value="1.0">Original (100%)</option>
+                        <option value="1.1" selected>Fuerte (110%)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boton procesar -->
+        <button class="btn" id="processBtn" disabled>Aplicar Marca de Agua</button>
+
+        <!-- Progreso -->
+        <div class="section progress-section" id="progressSection">
+            <h2>Progreso</h2>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%">0%</div>
+            </div>
+            <p class="status-message" id="statusMessage">Preparando...</p>
+            <div class="download-section" id="downloadSection" style="display: none;">
+                <button class="btn btn-download" id="downloadBtn">Descargar Audio</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioFile = null;
+        let currentJobId = null;
+
+        const audioDropZone = document.getElementById('audioDropZone');
+        const audioInput = document.getElementById('audioInput');
+        const audioInfo = document.getElementById('audioInfo');
+        const processBtn = document.getElementById('processBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Drop zone
+        audioDropZone.addEventListener('click', () => audioInput.click());
+
+        audioDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            audioDropZone.classList.add('dragover');
+        });
+
+        audioDropZone.addEventListener('dragleave', () => {
+            audioDropZone.classList.remove('dragover');
+        });
+
+        audioDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            audioDropZone.classList.remove('dragover');
+            handleAudio(e.dataTransfer.files);
+        });
+
+        audioInput.addEventListener('change', () => handleAudio(audioInput.files));
+
+        function handleAudio(files) {
+            if (files.length > 0) {
+                audioFile = files[0];
+                audioInfo.innerHTML = `
+                    <div class="file-info">
+                        <span class="icon">🎵</span>
+                        <div class="details">
+                            <div class="name">${audioFile.name}</div>
+                            <div class="size">${formatBytes(audioFile.size)}</div>
+                        </div>
+                        <button class="remove-file">Eliminar</button>
+                    </div>
+                `;
+                audioInfo.querySelector('.remove-file').onclick = () => {
+                    audioFile = null;
+                    audioInfo.innerHTML = '';
+                    processBtn.disabled = true;
+                };
+                processBtn.disabled = false;
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Procesar
+        processBtn.addEventListener('click', async () => {
+            const formData = new FormData();
+            formData.append('audio', audioFile);
+            formData.append('interval', document.getElementById('interval').value);
+            formData.append('volume', document.getElementById('volume').value);
+
+            progressSection.classList.add('active');
+            progressSection.classList.add('processing');
+            processBtn.disabled = true;
+            downloadSection.style.display = 'none';
+            statusMessage.style.color = '#aaa';
+
+            try {
+                const response = await fetch('/api/watermark', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                currentJobId = data.job_id;
+
+                // Poll status
+                const poll = setInterval(async () => {
+                    try {
+                        const res = await fetch(`/api/watermark/status/${currentJobId}`);
+                        const status = await res.json();
+
+                        progressBar.style.width = `${status.progress}%`;
+                        progressBar.textContent = `${status.progress}%`;
+                        statusMessage.textContent = status.message;
+
+                        if (status.status === 'completed') {
+                            clearInterval(poll);
+                            progressSection.classList.remove('processing');
+                            downloadSection.style.display = 'block';
+                            processBtn.disabled = false;
+                        } else if (status.status === 'error') {
+                            clearInterval(poll);
+                            progressSection.classList.remove('processing');
+                            statusMessage.style.color = '#e94560';
+                            processBtn.disabled = false;
+                        }
+                    } catch (e) {
+                        clearInterval(poll);
+                        statusMessage.textContent = 'Error de conexion';
+                        statusMessage.style.color = '#e94560';
+                        processBtn.disabled = false;
+                    }
+                }, 1000);
+
+            } catch (error) {
+                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.style.color = '#e94560';
+                progressSection.classList.remove('processing');
+                processBtn.disabled = false;
+            }
+        });
+
+        // Descargar
+        downloadBtn.addEventListener('click', () => {
+            if (currentJobId) {
+                window.location.href = `/api/watermark/download/${currentJobId}`;
+            }
+        });
+    </script>
+</body>
+</html>
