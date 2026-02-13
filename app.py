@@ -1160,6 +1160,7 @@ def watermark_upload():
 
     interval = int(request.form.get('interval', 10))
     volume = float(request.form.get('volume', 0.3))
+    trim = int(request.form.get('trim', 60))
 
     job_id = str(uuid.uuid4())
     job_folder = UPLOAD_FOLDER / f'wm_{job_id}'
@@ -1182,7 +1183,7 @@ def watermark_upload():
 
     thread = threading.Thread(
         target=process_watermark,
-        args=(job_id, input_path, output_path, interval, volume)
+        args=(job_id, input_path, output_path, interval, volume, trim)
     )
     thread.start()
 
@@ -1190,7 +1191,7 @@ def watermark_upload():
 
 
 def process_watermark(job_id: str, input_path: str, output_path: str,
-                      interval: int, volume: float):
+                      interval: int, volume: float, trim: int = 60):
     """Mezcla la marca de agua en la canción cada N segundos."""
     try:
         watermark_jobs[job_id]['message'] = 'Obteniendo duración del audio...'
@@ -1205,9 +1206,9 @@ def process_watermark(job_id: str, input_path: str, output_path: str,
         )
         duration = float(result.stdout.strip())
 
-        # Recortar la canción al primer minuto
-        max_duration = 60.0
-        if duration > max_duration:
+        # Recortar la canción si se especificó un límite
+        max_duration = float(trim) if trim > 0 else 0
+        if max_duration > 0 and duration > max_duration:
             watermark_jobs[job_id]['message'] = 'Recortando al primer minuto...'
             watermark_jobs[job_id]['progress'] = 20
             trimmed_path = input_path.rsplit('.', 1)[0] + '_trimmed.' + input_path.rsplit('.', 1)[1]

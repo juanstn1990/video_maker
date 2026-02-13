@@ -302,6 +302,13 @@
             <h2>2. Opciones</h2>
             <div class="options-grid">
                 <div class="option-group">
+                    <label for="trimMode">Duracion de la cancion</label>
+                    <select id="trimMode">
+                        <option value="60" selected>Recortar al primer minuto</option>
+                        <option value="0">Cancion completa</option>
+                    </select>
+                </div>
+                <div class="option-group">
                     <label for="interval">Intervalo de marca de agua (seg)</label>
                     <input type="number" id="interval" value="8" min="3" max="120" step="1">
                 </div>
@@ -406,6 +413,7 @@
             formData.append('audio', audioFile);
             formData.append('interval', document.getElementById('interval').value);
             formData.append('volume', document.getElementById('volume').value);
+            formData.append('trim', document.getElementById('trimMode').value);
 
             progressSection.classList.add('active');
             progressSection.classList.add('processing');
