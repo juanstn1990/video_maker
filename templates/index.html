@@ -17,9 +17,9 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: #f5f7fa;
             min-height: 100vh;
-            color: #fff;
+            color: #333;
             padding: 20px;
         }
 
@@ -28,49 +28,78 @@
             margin: 0 auto;
         }
 
+        .navbar {
+            display: flex;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .nav-link {
+            flex: 1;
+            text-align: center;
+            padding: 15px 30px;
+            text-decoration: none;
+            color: #666;
+            font-weight: 600;
+            font-size: 1.05em;
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover {
+            background: rgba(33, 150, 243, 0.05);
+            color: #2196F3;
+        }
+
+        .nav-link.active {
+            background: #2196F3;
+            color: #fff;
+        }
+
         h1 {
             text-align: center;
             margin-bottom: 30px;
             font-size: 2.5em;
-            background: linear-gradient(90deg, #e94560, #0f3460);
+            background: linear-gradient(90deg, #1976D2, #2196F3);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .section {
-            background: rgba(255, 255, 255, 0.05);
+            background: #fff;
             border-radius: 15px;
             padding: 25px;
             margin-bottom: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
         }
 
         .section h2 {
             margin-bottom: 20px;
-            color: #e94560;
+            color: #2196F3;
             font-size: 1.3em;
         }
 
         .drop-zone {
-            border: 3px dashed rgba(233, 69, 96, 0.5);
+            border: 3px dashed rgba(33, 150, 243, 0.4);
             border-radius: 15px;
             padding: 40px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            background: rgba(233, 69, 96, 0.05);
+            background: rgba(33, 150, 243, 0.03);
         }
 
         .drop-zone:hover, .drop-zone.dragover {
-            border-color: #e94560;
-            background: rgba(233, 69, 96, 0.15);
+            border-color: #2196F3;
+            background: rgba(33, 150, 243, 0.08);
             transform: scale(1.01);
         }
 
         .drop-zone p {
-            color: #aaa;
+            color: #888;
             margin-bottom: 10px;
         }
 
@@ -103,7 +132,7 @@
 
         .image-item:hover {
             transform: scale(1.05);
-            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.3);
+            box-shadow: 0 10px 30px rgba(33, 150, 243, 0.3);
         }
 
         .image-item.dragging {
@@ -112,7 +141,7 @@
         }
 
         .image-item.drag-over {
-            border-color: #e94560;
+            border-color: #2196F3;
         }
 
         .image-item img {
@@ -125,7 +154,7 @@
             position: absolute;
             top: 5px;
             left: 5px;
-            background: #e94560;
+            background: #2196F3;
             color: white;
             width: 25px;
             height: 25px;
@@ -164,7 +193,7 @@
             align-items: center;
             gap: 15px;
             padding: 15px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(33, 150, 243, 0.05);
             border-radius: 10px;
             margin-top: 15px;
         }
@@ -187,7 +216,7 @@
         }
 
         .file-info .remove-file {
-            background: #e94560;
+            background: #2196F3;
             border: none;
             color: white;
             padding: 8px 15px;
@@ -197,7 +226,7 @@
         }
 
         .file-info .remove-file:hover {
-            background: #d63850;
+            background: #1976D2;
         }
 
         .options-grid {
@@ -209,17 +238,17 @@
         .option-group label {
             display: block;
             margin-bottom: 8px;
-            color: #aaa;
+            color: #666;
         }
 
         .option-group select,
         .option-group input {
             width: 100%;
             padding: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid #ddd;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
+            background: #fff;
+            color: #333;
             font-size: 1em;
         }
 
@@ -230,11 +259,11 @@
         }
 
         .subsection-title {
-            color: #e94560;
+            color: #2196F3;
             font-size: 1.1em;
             margin: 20px 0 15px 0;
             padding-top: 15px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid #eee;
         }
 
         .subsection-title:first-of-type {
@@ -246,7 +275,7 @@
         .option-group select:focus,
         .option-group input:focus {
             outline: none;
-            border-color: #e94560;
+            border-color: #2196F3;
         }
 
         /* Estilos para preview de fuentes en selectores */
@@ -279,15 +308,15 @@
         .file-input-styled {
             width: 100%;
             padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid #ddd;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
+            background: #fff;
+            color: #333;
             cursor: pointer;
         }
 
         .file-input-styled::-webkit-file-upload-button {
-            background: linear-gradient(135deg, #e94560, #0f3460);
+            background: linear-gradient(135deg, #2196F3, #1976D2);
             border: none;
             color: white;
             padding: 8px 15px;
@@ -306,13 +335,13 @@
             max-height: 100px;
             max-width: 100%;
             border-radius: 8px;
-            border: 2px solid rgba(233, 69, 96, 0.5);
+            border: 2px solid rgba(33, 150, 243, 0.5);
         }
 
         .bg-image-preview .remove-bg {
             display: inline-block;
             margin-left: 10px;
-            background: #e94560;
+            background: #2196F3;
             color: white;
             border: none;
             padding: 5px 10px;
@@ -323,7 +352,7 @@
         }
 
         .btn {
-            background: linear-gradient(135deg, #e94560, #0f3460);
+            background: linear-gradient(135deg, #2196F3, #1976D2);
             border: none;
             color: white;
             padding: 15px 40px;
@@ -339,7 +368,7 @@
 
         .btn:hover:not(:disabled) {
             transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.4);
+            box-shadow: 0 10px 30px rgba(33, 150, 243, 0.4);
         }
 
         .btn:disabled {
@@ -356,7 +385,7 @@
         }
 
         .progress-bar-container {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(33, 150, 243, 0.1);
             border-radius: 25px;
             height: 30px;
             overflow: hidden;
@@ -365,7 +394,7 @@
 
         .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, #e94560, #0f3460);
+            background: linear-gradient(90deg, #2196F3, #1976D2);
             border-radius: 25px;
             transition: width 0.3s ease;
             display: flex;
@@ -373,11 +402,12 @@
             justify-content: center;
             font-weight: bold;
             min-width: 50px;
+            color: #fff;
         }
 
         .status-message {
             text-align: center;
-            color: #aaa;
+            color: #888;
             margin-top: 10px;
         }
 
@@ -391,15 +421,15 @@
         }
 
         .instructions {
-            background: rgba(233, 69, 96, 0.1);
-            border-left: 4px solid #e94560;
+            background: rgba(33, 150, 243, 0.06);
+            border-left: 4px solid #2196F3;
             padding: 15px 20px;
             margin-bottom: 20px;
             border-radius: 0 10px 10px 0;
         }
 
         .instructions p {
-            color: #ccc;
+            color: #555;
             line-height: 1.6;
         }
 
@@ -415,12 +445,16 @@
 </head>
 <body>
     <div class="container">
+        <nav class="navbar">
+            <a href="/" class="nav-link active">Creador de Videos</a>
+            <a href="/watermark" class="nav-link">Marca de Agua</a>
+        </nav>
+
         <h1>Creador de Videos</h1>
 
         <div class="instructions">
             <p><strong>Instrucciones:</strong> Sube tus imagenes (puedes arrastrarlas para reordenar),
             agrega el audio y opcionalmente un archivo de subtitulos .srt. Luego haz clic en "Crear Video".</p>
-            <p style="margin-top: 10px;"><a href="/watermark" style="color: #e94560; text-decoration: none; font-weight: bold;">🔊 Herramienta de Marca de Agua de Audio &rarr;</a></p>
         </div>
 
         <!-- Seccion de imagenes -->
@@ -1070,7 +1104,7 @@
                         eventSource.close();
                         progressSection.classList.remove('processing');
                         statusMessage.textContent = progress.message;
-                        statusMessage.style.color = '#e94560';
+                        statusMessage.style.color = '#f44336';
                         createBtn.disabled = false;
                     }
                 };
@@ -1078,13 +1112,13 @@
                 eventSource.onerror = () => {
                     eventSource.close();
                     statusMessage.textContent = 'Error de conexion';
-                    statusMessage.style.color = '#e94560';
+                    statusMessage.style.color = '#f44336';
                     createBtn.disabled = false;
                 };
 
             } catch (error) {
                 statusMessage.textContent = `Error: ${error.message}`;
-                statusMessage.style.color = '#e94560';
+                statusMessage.style.color = '#f44336';
                 progressSection.classList.remove('processing');
                 createBtn.disabled = false;
             }

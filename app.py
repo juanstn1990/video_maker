@@ -1205,6 +1205,23 @@ def process_watermark(job_id: str, input_path: str, output_path: str,
         )
         duration = float(result.stdout.strip())
 
+        # Recortar la canción al primer minuto
+        max_duration = 60.0
+        if duration > max_duration:
+            watermark_jobs[job_id]['message'] = 'Recortando al primer minuto...'
+            watermark_jobs[job_id]['progress'] = 20
+            trimmed_path = input_path.rsplit('.', 1)[0] + '_trimmed.' + input_path.rsplit('.', 1)[1]
+            trim_cmd = [
+                SYSTEM_FFMPEG, '-y',
+                '-i', input_path,
+                '-t', str(max_duration),
+                '-c', 'copy',
+                trimmed_path
+            ]
+            subprocess.run(trim_cmd, capture_output=True, text=True, timeout=60, check=True)
+            input_path = trimmed_path
+            duration = max_duration
+
         watermark_jobs[job_id]['message'] = 'Mezclando marca de agua...'
         watermark_jobs[job_id]['progress'] = 30
 
