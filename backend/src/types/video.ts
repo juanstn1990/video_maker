@@ -115,7 +115,7 @@ export interface VideoConfig {
   id: string
   name: string
   resolution: VideoResolution
-  fps: 24 | 30 | 60
+  fps: 15 | 24 | 30 | 60
   clips: ClipConfig[]
   audioTrack: AudioTrackConfig | null
   subtitleConfig: SubtitleConfig | null

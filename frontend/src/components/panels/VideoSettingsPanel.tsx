@@ -12,6 +12,7 @@ const RESOLUTIONS: { value: VideoResolution; label: string }[] = [
 ]
 
 const FPS_OPTIONS = [
+  { value: '15', label: '15 FPS (render rápido)' },
   { value: '24', label: '24 FPS' },
   { value: '30', label: '30 FPS' },
   { value: '60', label: '60 FPS' },
@@ -41,7 +42,7 @@ export function VideoSettingsPanel() {
         label="FPS"
         value={String(config.fps)}
         options={FPS_OPTIONS}
-        onChange={(e) => updateSettings({ fps: Number(e.target.value) as 24 | 30 | 60 })}
+        onChange={(e) => updateSettings({ fps: Number(e.target.value) as 15 | 24 | 30 | 60 })}
       />
 
       <div className="pt-2 border-t border-gray-800">

@@ -66,7 +66,7 @@ export const useEditorStore = create<EditorStore>()(
       id: uid(),
       name: 'Mi Video',
       resolution: '1080x1920',
-      fps: 30,
+      fps: 15,
       clips: [],
       audioTrack: null,
       subtitleConfig: null,

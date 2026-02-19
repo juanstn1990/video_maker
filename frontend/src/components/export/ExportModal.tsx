@@ -10,6 +10,7 @@ export function ExportModal() {
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState('')
   const [jobId, setJobId] = useState<string | null>(null)
+  const [fastMode, setFastMode] = useState(false)
   const esRef = useRef<EventSource | null>(null)
   const config = useEditorStore((s) => s.config)
 
@@ -31,7 +32,7 @@ export function ExportModal() {
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config }),
+        body: JSON.stringify({ config, fastMode }),
       })
       if (!res.ok) throw new Error('Error al iniciar el render')
       const { jobId } = await res.json()
@@ -48,6 +49,8 @@ export function ExportModal() {
         if (data.status === 'completed') {
           setPhase('done')
           es.close()
+          // Auto-descarga inmediata al terminar
+          window.location.href = `/api/download/${jobId}`
         } else if (data.status === 'error' || data.status === 'cancelled') {
           setPhase('error')
           setMessage(data.message ?? 'Error desconocido')
@@ -92,9 +95,28 @@ export function ExportModal() {
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-[440px] shadow-2xl">
             <h2 className="text-lg font-semibold text-white mb-1">Exportar Video</h2>
-            <p className="text-sm text-gray-400 mb-5">
+            <p className="text-sm text-gray-400 mb-3">
               {config.name} · {config.resolution} · {config.fps}fps
             </p>
+
+            {phase === 'idle' && (
+              <label className="flex items-center gap-3 mb-5 p-3 rounded-lg bg-gray-800 cursor-pointer select-none">
+                <div
+                  onClick={() => setFastMode((v) => !v)}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${fastMode ? 'bg-amber-500' : 'bg-gray-600'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${fastMode ? 'translate-x-5' : ''}`} />
+                </div>
+                <div onClick={() => setFastMode((v) => !v)}>
+                  <p className="text-sm font-medium text-white">Modo rápido</p>
+                  <p className="text-xs text-gray-400">
+                    {fastMode
+                      ? '~3–4x más rápido · resolución 50% · archivo más pequeño'
+                      : 'Calidad completa · resolución original'}
+                  </p>
+                </div>
+              </label>
+            )}
 
             {/* Progress bar */}
             {phase === 'rendering' && (

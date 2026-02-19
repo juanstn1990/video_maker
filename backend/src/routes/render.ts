@@ -53,7 +53,7 @@ function getLatestMtime(dir: string): number {
 export const renderRouter = Router()
 
 renderRouter.post('/render', async (req: Request, res: Response) => {
-  const { config } = req.body as { config: VideoConfig }
+  const { config, fastMode } = req.body as { config: VideoConfig; fastMode?: boolean }
   if (!config) {
     res.status(400).json({ error: 'Se requiere una configuración de video' })
     return
@@ -64,7 +64,7 @@ renderRouter.post('/render', async (req: Request, res: Response) => {
   res.json({ jobId })
 
   // Run render in background
-  runRender(jobId, config).catch((err) => {
+  runRender(jobId, config, fastMode ?? false).catch((err) => {
     console.error('Render error:', err)
     // Inner runRender already updates the job; this is a safety net
     const existing = jobs.get(jobId)
@@ -117,7 +117,7 @@ function rewriteMediaUrls(config: VideoConfig): VideoConfig {
   ) as VideoConfig
 }
 
-async function runRender(jobId: string, config: VideoConfig) {
+async function runRender(jobId: string, config: VideoConfig, fastMode: boolean) {
   const job = jobs.get(jobId)!
 
   try {
@@ -143,12 +143,18 @@ async function runRender(jobId: string, config: VideoConfig) {
       inputProps: { config: renderConfig },
     })
 
+    const cpuCount = require('os').cpus().length
     await renderMedia({
       composition,
       serveUrl,
       codec: 'h264',
       outputLocation: outputFile,
       inputProps: { config: renderConfig },
+      concurrency: Math.max(4, cpuCount - 1),
+      imageFormat: 'jpeg',
+      jpegQuality: fastMode ? 70 : 85,
+      crf: fastMode ? 28 : 18,
+      scale: fastMode ? 0.5 : 1,
       onProgress: ({ progress }) => {
         const j = jobs.get(jobId)!
         if (j.cancelled) return
