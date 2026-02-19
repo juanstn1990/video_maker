@@ -1,8 +1,10 @@
-import 'dotenv/config'
-import express from 'express'
-import cors from 'cors'
+import dotenv from 'dotenv'
 import path from 'path'
 import fs from 'fs'
+// Load .env from project root (one level above /backend)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+import express from 'express'
+import cors from 'cors'
 import { uploadRouter, UPLOADS_DIR } from './routes/upload'
 import { renderRouter } from './routes/render'
 import { jobsRouter } from './routes/jobs'
