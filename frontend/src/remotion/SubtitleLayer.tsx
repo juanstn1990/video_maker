@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
-import type { SubtitleConfig, Subtitle } from '../types/video'
+import type { SubtitleConfig, Subtitle, SubtitleWord } from '../types/video'
 
 interface Props {
   config: SubtitleConfig
@@ -11,6 +11,14 @@ function getActiveSubtitle(subtitles: Subtitle[], currentSeconds: number): Subti
   ) ?? null
 }
 
+function hexToRgba(hex: string, opacity: number): string {
+  const h = hex.replace('#', '')
+  const r = parseInt(h.substring(0, 2), 16)
+  const g = parseInt(h.substring(2, 4), 16)
+  const b = parseInt(h.substring(4, 6), 16)
+  return `rgba(${r},${g},${b},${opacity / 100})`
+}
+
 interface SubtitleItemProps {
   subtitle: Subtitle
   config: SubtitleConfig
@@ -19,22 +27,69 @@ interface SubtitleItemProps {
   activeFrame: number
 }
 
+const KaraokeText: React.FC<{
+  subtitle: Subtitle
+  currentSeconds: number
+  highlightColor: string
+  baseColor: string
+  fontFamily: string
+  fontSize: number
+  strokeWidth: number
+  strokeColor: string
+}> = ({ subtitle, currentSeconds, highlightColor, baseColor, fontFamily, fontSize, strokeWidth, strokeColor }) => {
+  const words = subtitle.words
+
+  // If no word-level data, fall back to a time-proportional sweep highlight
+  if (!words || words.length === 0) {
+    const duration = subtitle.endSeconds - subtitle.startSeconds
+    const elapsed = currentSeconds - subtitle.startSeconds
+    const progress = duration > 0 ? Math.min(1, Math.max(0, elapsed / duration)) : 0
+
+    const textStyle: React.CSSProperties = {
+      background: `linear-gradient(to right, ${highlightColor} ${progress * 100}%, ${baseColor} ${progress * 100}%)`,
+      WebkitBackgroundClip: 'text',
+      backgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      color: 'transparent',
+      WebkitTextStroke: strokeWidth > 0 ? `${strokeWidth}px ${strokeColor}` : 'none',
+      fontFamily,
+      fontSize,
+    }
+    return <span style={textStyle}>{subtitle.text}</span>
+  }
+
+  // Word-by-word highlighting
+  return (
+    <span>
+      {words.map((w: SubtitleWord, i: number) => {
+        const sung = currentSeconds >= w.startSeconds
+        return (
+          <span
+            key={i}
+            style={{
+              color: sung ? highlightColor : baseColor,
+              WebkitTextStroke: strokeWidth > 0 ? `${strokeWidth}px ${strokeColor}` : 'none',
+              transition: 'color 0.04s',
+            }}
+          >
+            {w.text}
+            {i < words.length - 1 ? ' ' : ''}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 const SubtitleItem: React.FC<SubtitleItemProps> = ({ subtitle, config, fps, activeFrame }) => {
   const subtitleDurationFrames = Math.round((subtitle.endSeconds - subtitle.startSeconds) * fps)
   const animDur = Math.min(12, Math.floor(subtitleDurationFrames * 0.25))
 
-  const isTypewriter = config.animationIn === 'none' && (config as any).typewriterEffect
-  const elapsed = activeFrame / fps
-  const duration = subtitle.endSeconds - subtitle.startSeconds
-
-  // Typewriter character reveal
-  const visibleText = isTypewriter || config.animationIn === 'none'
-    ? subtitle.text
-    : subtitle.text
+  const currentSeconds = subtitle.startSeconds + (activeFrame / fps)
 
   // Typewriter built into 'none' fallback for backward compat
   const typewriterText = (config as any).typewriterEffect
-    ? subtitle.text.slice(0, Math.floor((elapsed / duration) * subtitle.text.length))
+    ? subtitle.text.slice(0, Math.floor(((activeFrame / fps) / (subtitle.endSeconds - subtitle.startSeconds)) * subtitle.text.length))
     : subtitle.text
 
   // Entry animation
@@ -114,6 +169,13 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({ subtitle, config, fps, acti
     ? { transform: `translateY(${entryY}px) scale(${entryScale})` }
     : {}
 
+  const bgColor = config.backgroundBoxColor ?? '#000000'
+  const bgOpacity = config.backgroundBoxOpacity !== undefined ? config.backgroundBoxOpacity : 60
+  const backgroundColor = config.backgroundBox ? hexToRgba(bgColor, bgOpacity) : 'transparent'
+
+  const isKaraoke = config.karaokeStyle ?? false
+  const highlightColor = config.karaokeHighlightColor ?? '#FFD700'
+
   return (
     <div
       style={{
@@ -133,18 +195,31 @@ const SubtitleItem: React.FC<SubtitleItemProps> = ({ subtitle, config, fps, acti
           fontSize: config.fontSize,
           fontFamily: config.fontFamily,
           color: config.color,
-          WebkitTextStroke: config.strokeWidth > 0
+          WebkitTextStroke: !isKaraoke && config.strokeWidth > 0
             ? `${config.strokeWidth}px ${config.strokeColor}`
             : 'none',
           textAlign: 'center',
           lineHeight: 1.4,
-          backgroundColor: config.backgroundBox ? 'rgba(0,0,0,0.6)' : 'transparent',
+          backgroundColor,
           padding: config.backgroundBox ? '8px 16px' : '0',
           borderRadius: config.backgroundBox ? '6px' : '0',
           maxWidth: '90%',
         }}
       >
-        {typewriterText || '\u200B'}
+        {isKaraoke ? (
+          <KaraokeText
+            subtitle={subtitle}
+            currentSeconds={currentSeconds}
+            highlightColor={highlightColor}
+            baseColor={config.color}
+            fontFamily={config.fontFamily}
+            fontSize={config.fontSize}
+            strokeWidth={config.strokeWidth}
+            strokeColor={config.strokeColor}
+          />
+        ) : (
+          typewriterText || '\u200B'
+        )}
       </div>
     </div>
   )

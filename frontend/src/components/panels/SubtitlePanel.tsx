@@ -22,6 +22,11 @@ const POSITION_OPTIONS = [
   { value: 'bottom', label: 'Abajo' },
 ]
 
+const SUBTITLE_STYLE_OPTIONS = [
+  { value: 'normal', label: 'Normal (predeterminado)' },
+  { value: 'karaoke', label: 'Karaoke (resaltado por palabra)' },
+]
+
 const DEFAULT_SUBTITLE_CONFIG: SubtitleConfig = {
   enabled: true,
   subtitles: [],
@@ -33,6 +38,10 @@ const DEFAULT_SUBTITLE_CONFIG: SubtitleConfig = {
   position: 'bottom',
   animationIn: 'fadeIn',
   backgroundBox: true,
+  backgroundBoxColor: '#000000',
+  backgroundBoxOpacity: 60,
+  karaokeStyle: false,
+  karaokeHighlightColor: '#FFD700',
 }
 
 export function SubtitlePanel() {
@@ -201,6 +210,28 @@ export function SubtitlePanel() {
       <div className="border-t border-gray-800 pt-3 space-y-3">
         <h4 className="text-xs text-gray-500 uppercase tracking-wider">Estilo</h4>
 
+        {/* Subtitle style: Normal vs Karaoke */}
+        <Select
+          label="Estilo de subtítulo"
+          value={sub.karaokeStyle ? 'karaoke' : 'normal'}
+          options={SUBTITLE_STYLE_OPTIONS}
+          onChange={(e) => updateConfig({ karaokeStyle: e.target.value === 'karaoke' })}
+        />
+
+        {sub.karaokeStyle && (
+          <div className="bg-gray-800 rounded-lg p-2 space-y-2">
+            <p className="text-[11px] text-gray-400">
+              Karaoke: cada palabra se resalta al ser "cantada". Requiere transcripción
+              sin corrección de letra para tener timestamps por palabra.
+            </p>
+            <ColorInput
+              label="Color de resaltado"
+              value={sub.karaokeHighlightColor ?? '#FFD700'}
+              onChange={(v) => updateConfig({ karaokeHighlightColor: v })}
+            />
+          </div>
+        )}
+
         <Select
           label="Posición"
           value={sub.position}
@@ -208,12 +239,14 @@ export function SubtitlePanel() {
           onChange={(e) => updateConfig({ position: e.target.value as SubtitleConfig['position'] })}
         />
 
-        <Select
-          label="Animación entrada"
-          value={sub.animationIn ?? 'fadeIn'}
-          options={ANIMATION_OPTIONS}
-          onChange={(e) => updateConfig({ animationIn: e.target.value as SubtitleAnimation })}
-        />
+        {!sub.karaokeStyle && (
+          <Select
+            label="Animación entrada"
+            value={sub.animationIn ?? 'fadeIn'}
+            options={ANIMATION_OPTIONS}
+            onChange={(e) => updateConfig({ animationIn: e.target.value as SubtitleAnimation })}
+          />
+        )}
 
         <Select
           label="Fuente"
@@ -231,7 +264,7 @@ export function SubtitlePanel() {
 
         <div className="grid grid-cols-2 gap-2">
           <ColorInput
-            label="Color texto"
+            label={sub.karaokeStyle ? 'Color base' : 'Color texto'}
             value={sub.color}
             onChange={(v) => updateConfig({ color: v })}
           />
@@ -249,15 +282,35 @@ export function SubtitlePanel() {
           onChange={(e) => updateConfig({ strokeWidth: parseInt(e.target.value) })}
         />
 
-        <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={sub.backgroundBox}
-            onChange={(e) => updateConfig({ backgroundBox: e.target.checked })}
-            className="accent-indigo-500"
-          />
-          Fondo oscuro
-        </label>
+        {/* Background box */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-1.5 text-xs text-gray-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sub.backgroundBox}
+              onChange={(e) => updateConfig({ backgroundBox: e.target.checked })}
+              className="accent-indigo-500"
+            />
+            Fondo oscuro
+          </label>
+
+          {sub.backgroundBox && (
+            <div className="pl-4 space-y-2">
+              <ColorInput
+                label="Color del fondo"
+                value={sub.backgroundBoxColor ?? '#000000'}
+                onChange={(v) => updateConfig({ backgroundBoxColor: v })}
+              />
+              <Slider
+                label="Opacidad del fondo"
+                min={10} max={100} step={5}
+                value={sub.backgroundBoxOpacity ?? 60}
+                displayValue={`${sub.backgroundBoxOpacity ?? 60}%`}
+                onChange={(e) => updateConfig({ backgroundBoxOpacity: parseInt(e.target.value) })}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Subtitle list */}

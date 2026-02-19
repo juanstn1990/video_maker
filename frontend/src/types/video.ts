@@ -64,11 +64,18 @@ export interface TextOverlay {
 }
 
 // ─── Subtitles ──────────────────────────────────────────────────────────────
+export interface SubtitleWord {
+  text: string
+  startSeconds: number
+  endSeconds: number
+}
+
 export interface Subtitle {
   id: string
   text: string
   startSeconds: number
   endSeconds: number
+  words?: SubtitleWord[]  // word-level timestamps for karaoke mode
 }
 
 export type SubtitleAnimation = 'none' | 'fadeIn' | 'slideUp' | 'bounce' | 'pop'
@@ -84,6 +91,10 @@ export interface SubtitleConfig {
   position: 'top' | 'center' | 'bottom'
   animationIn: SubtitleAnimation
   backgroundBox: boolean
+  backgroundBoxColor?: string    // hex, default '#000000'
+  backgroundBoxOpacity?: number  // 0-100, default 60
+  karaokeStyle?: boolean
+  karaokeHighlightColor?: string // hex, default '#FFD700'
 }
 
 // ─── Clips ──────────────────────────────────────────────────────────────────

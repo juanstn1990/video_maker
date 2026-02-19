@@ -7,17 +7,25 @@ import { UPLOADS_DIR } from './upload'
 
 export const transcribeRouter = Router()
 
+interface SubtitleWord {
+  text: string
+  startSeconds: number
+  endSeconds: number
+}
+
 interface Subtitle {
   id: string
   text: string
   startSeconds: number
   endSeconds: number
+  words?: SubtitleWord[]
 }
 
 interface RawSegment {
   startSeconds: number
   endSeconds: number
   text: string
+  words?: SubtitleWord[]
 }
 
 async function alignWithLyrics(
@@ -79,12 +87,12 @@ transcribeRouter.post('/transcribe', async (req: Request, res: Response) => {
   try {
     const client = new OpenAI({ apiKey })
 
-    // Step 1: Transcribe with Whisper
+    // Step 1: Transcribe with Whisper (request both segment & word timestamps)
     const response = await (client.audio.transcriptions.create as Function)({
       file: fs.createReadStream(filePath),
       model: 'whisper-1',
       response_format: 'verbose_json',
-      timestamp_granularities: ['segment'],
+      timestamp_granularities: ['segment', 'word'],
     })
 
     const whisperSegments = (response as any).segments as Array<{
@@ -105,13 +113,31 @@ transcribeRouter.post('/transcribe', async (req: Request, res: Response) => {
       return
     }
 
-    let rawSegments: RawSegment[] = whisperSegments.map((seg) => ({
-      startSeconds: seg.start,
-      endSeconds: seg.end,
-      text: seg.text.trim(),
-    }))
+    // Parse word-level timestamps from top-level response
+    const whisperWords = (response as any).words as Array<{
+      word: string
+      start: number
+      end: number
+    }> | undefined
+
+    let rawSegments: RawSegment[] = whisperSegments.map((seg) => {
+      // Associate words that start within this segment's time range
+      const segWords: SubtitleWord[] = whisperWords
+        ? whisperWords
+            .filter((w) => w.start >= seg.start && w.start < seg.end)
+            .map((w) => ({ text: w.word.trim(), startSeconds: w.start, endSeconds: w.end }))
+        : []
+      return {
+        startSeconds: seg.start,
+        endSeconds: seg.end,
+        text: seg.text.trim(),
+        words: segWords.length > 0 ? segWords : undefined,
+      }
+    })
 
     // Step 2: If lyrics provided, use GPT-4o to align and correct
+    // Note: word timestamps are dropped when lyrics correction is applied
+    // because GPT reorders/rewrites the text
     let corrected = false
     if (lyrics && lyrics.trim().length > 10) {
       rawSegments = await alignWithLyrics(client, rawSegments, lyrics)
@@ -123,6 +149,7 @@ transcribeRouter.post('/transcribe', async (req: Request, res: Response) => {
       text: seg.text.trim(),
       startSeconds: seg.startSeconds,
       endSeconds: seg.endSeconds,
+      words: corrected ? undefined : seg.words,
     }))
 
     res.json({ subtitles, corrected })
