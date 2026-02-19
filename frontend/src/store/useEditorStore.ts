@@ -91,6 +91,7 @@ export const useEditorStore = create<EditorStore>()(
           cropZoom: 1,
           cropX: 0,
           cropY: 0,
+          fitMode: 'cover',
         }
         state.config.clips.push(clip)
         state.config.totalFrames = computeTotalFrames(state.config.clips)
@@ -115,6 +116,7 @@ export const useEditorStore = create<EditorStore>()(
             cropZoom: 1,
             cropX: 0,
             cropY: 0,
+            fitMode: 'cover',
           })
         }
         state.config.totalFrames = computeTotalFrames(state.config.clips)

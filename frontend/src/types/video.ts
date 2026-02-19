@@ -108,6 +108,8 @@ interface BaseClip {
   textOverlays: TextOverlay[]
 }
 
+export type ImageFitMode = 'cover' | 'contain' | 'fill'
+
 export interface ImageClipConfig extends BaseClip {
   type: 'image'
   mediaId: string
@@ -121,6 +123,7 @@ export interface ImageClipConfig extends BaseClip {
   cropZoom: number     // 1.0 = default, >1 zoom in, <1 zoom out
   cropX: number        // -1..1 horizontal offset
   cropY: number        // -1..1 vertical offset
+  fitMode: ImageFitMode  // how image fills the frame
 }
 
 export interface TitleClipConfig extends BaseClip {

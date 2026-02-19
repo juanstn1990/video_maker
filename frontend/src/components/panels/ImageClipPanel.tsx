@@ -5,7 +5,7 @@ import { Select } from '../ui/Select'
 import { ColorInput } from '../ui/ColorInput'
 import { Button } from '../ui/Button'
 import { FONT_OPTIONS } from '../../constants/fonts'
-import type { ImageClipConfig, TextAnimation } from '../../types/video'
+import type { ImageClipConfig, ImageFitMode, TextAnimation } from '../../types/video'
 
 const TRANSITIONS = [
   { value: 'none', label: 'Sin transición' },
@@ -94,6 +94,31 @@ export function ImageClipPanel({ clip }: Props) {
       {/* Static Framing */}
       <div className="border-t border-gray-800 pt-3 space-y-2">
         <h4 className="text-xs text-gray-500 uppercase tracking-wider">Encuadre</h4>
+
+        {/* Fit mode */}
+        <div>
+          <label className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">Ajuste de imagen</label>
+          <div className="grid grid-cols-3 gap-1">
+            {([
+              { value: 'cover', label: 'Recortar', desc: 'Llena el encuadre (recorta)' },
+              { value: 'contain', label: 'Completa', desc: 'Imagen completa (barras negras)' },
+              { value: 'fill', label: 'Estirar', desc: 'Estira para llenar' },
+            ] as { value: ImageFitMode; label: string; desc: string }[]).map((opt) => (
+              <button
+                key={opt.value}
+                title={opt.desc}
+                className={`text-[10px] rounded px-1 py-1.5 transition-colors text-center ${
+                  (clip.fitMode ?? 'cover') === opt.value
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
+                }`}
+                onClick={() => updateImageClip(clip.id, { fitMode: opt.value })}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <Slider
           label="Zoom"

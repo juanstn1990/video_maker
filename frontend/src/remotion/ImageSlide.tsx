@@ -38,7 +38,7 @@ export const ImageSlide: React.FC<Props> = ({ clip }) => {
         style={{
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit: clip.fitMode ?? 'cover',
           transform: `rotate(${rotation}deg) scale(${effectiveScale}) translate(${effectiveTx}%, ${effectiveTy}%)`,
           transformOrigin: 'center center',
           filter: filters,
