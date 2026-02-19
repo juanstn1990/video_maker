@@ -1,0 +1,5 @@
+**/node_modules
+**/.git
+frontend/dist
+frontend/.vite-cache
+**/dist

@@ -1,25 +1,16 @@
 version: '3.8'
 
 services:
-  video-creator:
+  video-maker:
     build: .
-    container_name: video-creator
+    container_name: video-maker
     ports:
-      - "80:80"
+      - "80:3001"
     volumes:
-      # Volumen para persistir videos generados (opcional)
-      - video_output:/tmp/video_creator
-    environment:
-      - FLASK_ENV=production
-      - PYTHONUNBUFFERED=1
+      - uploads_data:/tmp/vm_uploads
+      - renders_data:/tmp/vm_renders
     restart: unless-stopped
-    # Recursos recomendados para procesamiento de video
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 2G
 
 volumes:
-  video_output:
+  uploads_data:
+  renders_data:
