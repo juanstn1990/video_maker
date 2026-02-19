@@ -11,6 +11,7 @@ export function WatermarkPage({ onBack }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [intervalSecs, setIntervalSecs] = useState(8)
   const [volume, setVolume] = useState(1.2)
+  const [mode, setMode] = useState<'preview' | 'full'>('preview')
   const [status, setStatus] = useState<JobStatus>('idle')
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState('')
@@ -44,8 +45,9 @@ export function WatermarkPage({ onBack }: Props) {
 
     const form = new FormData()
     form.append('audio', file)
-    form.append('intervalSecs', String(intervalSecs))
+    form.append('interval', String(intervalSecs))
     form.append('volume', String(volume))
+    form.append('mode', mode)
 
     try {
       const res = await fetch('/api/watermark', { method: 'POST', body: form })
@@ -190,6 +192,35 @@ export function WatermarkPage({ onBack }: Props) {
               />
               <div className="flex justify-between text-[10px] text-gray-600">
                 <span>5s</span><span>60s</span>
+              </div>
+            </div>
+
+            {/* Mode */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs text-gray-400">Modo de exportación</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMode('preview')}
+                  className={`flex-1 flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border text-left transition-all ${
+                    mode === 'preview'
+                      ? 'border-indigo-500 bg-indigo-950/40 text-white'
+                      : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                  }`}
+                >
+                  <span className="text-xs font-semibold">Vista previa</span>
+                  <span className="text-[11px] text-gray-500">Recorta a 1 minuto</span>
+                </button>
+                <button
+                  onClick={() => setMode('full')}
+                  className={`flex-1 flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border text-left transition-all ${
+                    mode === 'full'
+                      ? 'border-indigo-500 bg-indigo-950/40 text-white'
+                      : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600'
+                  }`}
+                >
+                  <span className="text-xs font-semibold">Canción completa</span>
+                  <span className="text-[11px] text-gray-500">Sin recorte</span>
+                </button>
               </div>
             </div>
 

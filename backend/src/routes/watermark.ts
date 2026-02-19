@@ -45,6 +45,7 @@ router.post('/watermark', upload.single('audio'), (req, res) => {
 
   const interval = Math.max(1, parseInt(req.body.interval ?? '8', 10))
   const volume = Math.max(0.01, parseFloat(req.body.volume ?? '1.2'))
+  const preview = req.body.mode === 'preview'
 
   const jobId = uuidv4()
   const jobDir = path.join(UPLOADS_DIR, `wm_${jobId}`)
@@ -60,7 +61,7 @@ router.post('/watermark', upload.single('audio'), (req, res) => {
 
   jobs[jobId] = { status: 'processing', progress: 10, message: 'Iniciando...' }
 
-  processWatermark(jobId, inputPath, outputPath, outputName, interval, volume)
+  processWatermark(jobId, inputPath, outputPath, outputName, interval, volume, preview)
 
   res.json({ job_id: jobId })
 })
@@ -72,6 +73,7 @@ function processWatermark(
   outputName: string,
   interval: number,
   volume: number,
+  preview: boolean,
 ) {
   jobs[jobId].message = 'Obteniendo duración del audio...'
   jobs[jobId].progress = 15
@@ -95,7 +97,8 @@ function processWatermark(
       jobs[jobId].message = 'Mezclando marca de agua...'
       jobs[jobId].progress = 30
 
-      const numWatermarks = Math.max(1, Math.floor(duration / interval))
+      const effectiveDuration = preview ? Math.min(duration, 60) : duration
+      const numWatermarks = Math.max(1, Math.floor(effectiveDuration / interval))
 
       // Build ffmpeg filter_complex:
       // Input 0: main song, Input 1: watermark file
@@ -122,6 +125,7 @@ function processWatermark(
           '-i', WATERMARK_FILE,
           '-filter_complex', filterComplex,
           '-map', '[out]',
+          ...(preview ? ['-t', '60'] : []),
           '-c:a', 'libmp3lame',
           '-q:a', '2',
           '-y',
