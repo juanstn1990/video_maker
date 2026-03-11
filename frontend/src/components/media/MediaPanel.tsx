@@ -114,7 +114,7 @@ export function MediaPanel() {
           type="file"
           className="hidden"
           multiple
-          accept="image/*,audio/*"
+          accept="image/*,audio/*,.mpeg,.mpg,.mp3,.mp2,.m4a,.ogg,.wav,.flac,.aac,.opus"
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
         />
 

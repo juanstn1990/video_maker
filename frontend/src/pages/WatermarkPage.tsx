@@ -152,7 +152,7 @@ export function WatermarkPage({ onBack }: Props) {
             <input
               ref={inputRef}
               type="file"
-              accept="audio/*"
+              accept="audio/*,.mpeg,.mpg,.mp3,.mp2,.m4a,.ogg,.wav,.flac,.aac,.opus"
               className="hidden"
               onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
             />

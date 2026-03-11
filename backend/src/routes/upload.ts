@@ -31,7 +31,9 @@ uploadRouter.post('/upload', upload.single('file'), async (req: Request, res: Re
   const mediaId = path.basename(file.filename, path.extname(file.filename))
   const fileUrl = `/uploads/${file.filename}`
   const isImage = file.mimetype.startsWith('image/')
-  const isAudio = file.mimetype.startsWith('audio/')
+  const ext = path.extname(file.originalname).toLowerCase()
+  const AUDIO_EXTENSIONS = new Set(['.mp3', '.mp2', '.mpeg', '.mpg', '.m4a', '.ogg', '.wav', '.flac', '.aac', '.wma', '.opus'])
+  const isAudio = file.mimetype.startsWith('audio/') || AUDIO_EXTENSIONS.has(ext)
 
   try {
     if (isImage) {
