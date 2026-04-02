@@ -89,7 +89,13 @@ export function RuletaPage() {
           <p className="text-xl font-bold bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent mb-1">
             lalala music
           </p>
-          <p className="text-gray-400 text-sm">¡Gira y gana descuentos exclusivos!</p>
+          <p className="text-gray-400 text-sm mb-3">¡Gira y gana descuentos exclusivos!</p>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 border border-amber-500/40 rounded-lg">
+            <span className="text-amber-400 text-lg">⚠️</span>
+            <p className="text-amber-200 text-sm font-medium">
+              Descuento válido únicamente para hoy: <span className="font-bold">{new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </p>
+          </div>
         </div>
 
         {/* Wheel */}

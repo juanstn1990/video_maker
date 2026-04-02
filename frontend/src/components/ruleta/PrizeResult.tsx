@@ -108,9 +108,18 @@ export function PrizeResult({ prize, onClose }: Props) {
           </p>
         </div>
 
-        <p className="text-gray-500 text-xs mb-6">
+        <p className="text-gray-500 text-xs mb-4">
           Muestra esta pantalla para reclamar tu premio en lalala music
         </p>
+
+        <div className="mb-6 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+          <p className="text-amber-300 text-xs font-semibold">
+            ⏰ Válido únicamente para hoy
+          </p>
+          <p className="text-amber-400/80 text-xs mt-1">
+            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
 
         <button
           onClick={onClose}
