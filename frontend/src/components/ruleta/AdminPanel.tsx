@@ -7,11 +7,12 @@ interface Props {
 export function AdminPanel({ alwaysOpen = false }: Props) {
   const [open, setOpen] = useState(alwaysOpen)
   const [adminKey, setAdminKey] = useState('')
-  const [count, setCount] = useState(10)
+  const [count, setCount] = useState(1)
   const [generated, setGenerated] = useState<string[]>([])
   const [codesList, setCodesList] = useState<{ code: string; used: boolean; prize?: string; usedAt?: string }[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   async function handleGenerate() {
     setLoading(true)
@@ -39,6 +40,16 @@ export function AdminPanel({ alwaysOpen = false }: Props) {
       setCodesList(data.codes)
     } catch { setError('Error de conexión') }
     finally { setLoading(false) }
+  }
+
+  async function handleCopyCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedCode(code)
+      setTimeout(() => setCopiedCode(null), 2000)
+    } catch (err) {
+      console.error('Error al copiar:', err)
+    }
   }
 
   return (
@@ -100,7 +111,20 @@ export function AdminPanel({ alwaysOpen = false }: Props) {
               <p className={`text-green-400 mb-3 font-semibold ${alwaysOpen ? 'text-lg' : 'text-sm'}`}>✅ {generated.length} código(s) generado(s):</p>
               <div className={`grid gap-3 ${alwaysOpen ? 'grid-cols-3 sm:grid-cols-5' : 'grid-cols-4'}`}>
                 {generated.map(c => (
-                  <span key={c} className={`bg-gray-800 border border-gray-700 rounded font-mono text-gray-300 text-center ${alwaysOpen ? 'px-4 py-3 text-base' : 'px-3 py-2 text-sm'}`}>{c}</span>
+                  <button
+                    key={c}
+                    onMouseEnter={() => handleCopyCode(c)}
+                    onClick={() => handleCopyCode(c)}
+                    className={`bg-gray-800 border border-gray-700 hover:border-indigo-500 hover:bg-gray-700 active:scale-95 rounded font-mono text-center transition-all cursor-pointer relative ${alwaysOpen ? 'px-4 py-3 text-base' : 'px-3 py-2 text-sm'} ${copiedCode === c ? 'text-green-400 border-green-500' : 'text-gray-300'}`}
+                    title="Toca o pasa el mouse para copiar"
+                  >
+                    {c}
+                    {copiedCode === c && (
+                      <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-green-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap shadow-lg z-10">
+                        ✓ Copiado
+                      </span>
+                    )}
+                  </button>
                 ))}
               </div>
             </div>
