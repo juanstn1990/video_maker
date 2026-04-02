@@ -4,7 +4,7 @@ import { AdminPanel } from '../components/ruleta/AdminPanel'
 export function LandingPage() {
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center bg-gray-950 px-4"
+      className="min-h-screen flex flex-col items-center bg-gray-950 px-4 py-12"
       style={{ background: 'radial-gradient(ellipse at top, #1e1b4b 0%, #0a0a0f 60%)' }}
     >
       {/* Brand header */}
