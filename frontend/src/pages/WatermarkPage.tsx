@@ -1,13 +1,11 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
-
-interface Props {
-  onBack: () => void
-}
 
 type JobStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
 
-export function WatermarkPage({ onBack }: Props) {
+export function WatermarkPage() {
+  const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [intervalSecs, setIntervalSecs] = useState(8)
   const [volume, setVolume] = useState(1.2)
@@ -109,7 +107,7 @@ export function WatermarkPage({ onBack }: Props) {
       {/* Header */}
       <header className="flex items-center gap-3 px-5 py-3 bg-gray-900 border-b border-gray-800 flex-shrink-0">
         <button
-          onClick={onBack}
+          onClick={() => navigate('/')}
           className="text-gray-500 hover:text-gray-200 transition-colors text-sm flex items-center gap-1"
         >
           ← Inicio

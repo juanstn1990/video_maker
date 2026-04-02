@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { EditorLayout } from './components/layout/EditorLayout'
 import { LandingPage } from './pages/LandingPage'
 import { WatermarkPage } from './pages/WatermarkPage'
-
-type Page = 'home' | 'videomaker' | 'watermark'
+import { RuletaPage } from './pages/RuletaPage'
 
 export default function App() {
-  const [page, setPage] = useState<Page>('home')
-
-  if (page === 'videomaker') return <EditorLayout onBack={() => setPage('home')} />
-  if (page === 'watermark') return <WatermarkPage onBack={() => setPage('home')} />
-  return <LandingPage onNavigate={(p) => setPage(p)} />
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/videomaker" element={<EditorLayout />} />
+        <Route path="/watermark" element={<WatermarkPage />} />
+        <Route path="/ruleta" element={<RuletaPage />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }

@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { MediaPanel } from '../media/MediaPanel'
 import { VideoPreview } from '../preview/VideoPreview'
 import { Timeline } from '../timeline/Timeline'
@@ -22,28 +23,21 @@ const FPS_OPTIONS = [
   { value: '60', label: '60 fps' },
 ]
 
-interface Props {
-  onBack?: () => void
-}
-
-export function EditorLayout({ onBack }: Props) {
+export function EditorLayout() {
+  const navigate = useNavigate()
   const { config, updateSettings } = useEditorStore()
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
       {/* ─── Toolbar ─── */}
       <header className="flex items-center gap-3 px-4 py-2 bg-gray-900 border-b border-gray-800 flex-shrink-0">
-        {onBack && (
-          <>
-            <button
-              onClick={onBack}
-              className="text-gray-500 hover:text-gray-200 transition-colors text-xs flex items-center gap-1 flex-shrink-0"
-            >
-              ← Inicio
-            </button>
-            <div className="w-px h-4 bg-gray-700 flex-shrink-0" />
-          </>
-        )}
+        <button
+          onClick={() => navigate('/')}
+          className="text-gray-500 hover:text-gray-200 transition-colors text-xs flex items-center gap-1 flex-shrink-0"
+        >
+          ← Inicio
+        </button>
+        <div className="w-px h-4 bg-gray-700 flex-shrink-0" />
         <span className="text-indigo-400 font-bold text-sm tracking-tight mr-2">VideoMaker</span>
 
         <input

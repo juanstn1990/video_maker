@@ -11,6 +11,7 @@ import { jobsRouter } from './routes/jobs'
 import { transcribeRouter } from './routes/transcribe'
 import { watermarkRouter } from './routes/watermark'
 import { audioPreviewRouter } from './routes/audioPreview'
+import { ruletaRouter } from './routes/ruleta'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -29,6 +30,7 @@ app.use('/api', jobsRouter)
 app.use('/api', transcribeRouter)
 app.use('/api', watermarkRouter)
 app.use('/api', audioPreviewRouter)
+app.use('/api', ruletaRouter)
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
