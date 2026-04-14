@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MediaPanel } from '../media/MediaPanel'
 import { VideoPreview } from '../preview/VideoPreview'
@@ -5,8 +6,6 @@ import { Timeline } from '../timeline/Timeline'
 import { PropertiesPanel } from '../panels/PropertiesPanel'
 import { ExportModal } from '../export/ExportModal'
 import { useEditorStore } from '../../store/useEditorStore'
-import { Input } from '../ui/Input'
-import { Select } from '../ui/Select'
 import type { VideoResolution } from '../../types/video'
 
 const RESOLUTIONS: { value: VideoResolution; label: string }[] = [
@@ -23,14 +22,23 @@ const FPS_OPTIONS = [
   { value: '60', label: '60 fps' },
 ]
 
+type MobileTab = 'media' | 'video' | 'props'
+
+const TABS: { id: MobileTab; label: string; icon: string }[] = [
+  { id: 'media', label: 'Media', icon: '🖼' },
+  { id: 'video', label: 'Video', icon: '▶' },
+  { id: 'props', label: 'Ajustes', icon: '⚙' },
+]
+
 export function EditorLayout() {
   const navigate = useNavigate()
   const { config, updateSettings } = useEditorStore()
+  const [activeTab, setActiveTab] = useState<MobileTab>('video')
 
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-gray-950 text-gray-100 overflow-hidden">
       {/* ─── Toolbar ─── */}
-      <header className="flex items-center gap-3 px-4 py-2 bg-gray-900 border-b border-gray-800 flex-shrink-0">
+      <header className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-gray-800 flex-shrink-0 min-w-0">
         <button
           onClick={() => navigate('/')}
           className="text-gray-500 hover:text-gray-200 transition-colors text-xs flex items-center gap-1 flex-shrink-0"
@@ -38,18 +46,18 @@ export function EditorLayout() {
           ← Inicio
         </button>
         <div className="w-px h-4 bg-gray-700 flex-shrink-0" />
-        <span className="text-indigo-400 font-bold text-sm tracking-tight mr-2">VideoMaker</span>
+        <span className="text-indigo-400 font-bold text-sm tracking-tight flex-shrink-0">VM</span>
 
         <input
-          className="bg-transparent border-none text-gray-200 text-sm font-medium focus:outline-none focus:bg-gray-800 rounded px-1 py-0.5 w-36"
+          className="bg-transparent border-none text-gray-200 text-xs font-medium focus:outline-none focus:bg-gray-800 rounded px-1 py-0.5 min-w-0 w-24 sm:w-36"
           value={config.name}
           onChange={(e) => updateSettings({ name: e.target.value })}
           title="Nombre del proyecto"
         />
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2 flex-shrink-0">
           <select
-            className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 focus:outline-none"
+            className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-1 sm:px-2 py-1 focus:outline-none max-w-[90px] sm:max-w-none"
             value={config.resolution}
             onChange={(e) => updateSettings({ resolution: e.target.value as VideoResolution })}
           >
@@ -59,7 +67,7 @@ export function EditorLayout() {
           </select>
 
           <select
-            className="bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 focus:outline-none"
+            className="hidden sm:block bg-gray-800 border border-gray-700 text-gray-300 text-xs rounded px-2 py-1 focus:outline-none"
             value={String(config.fps)}
             onChange={(e) => updateSettings({ fps: Number(e.target.value) as 24 | 30 | 60 })}
           >
@@ -72,19 +80,48 @@ export function EditorLayout() {
         </div>
       </header>
 
-      {/* ─── Main area ─── */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: Media panel */}
-        <MediaPanel />
+      {/* ─── Main area — desktop: 3 columns, mobile: single panel ─── */}
 
-        {/* Center: Preview + Timeline */}
+      {/* Desktop layout (md+) */}
+      <div className="hidden md:flex flex-1 overflow-hidden">
+        <MediaPanel />
         <div className="flex flex-col flex-1 overflow-hidden">
           <VideoPreview />
           <Timeline />
         </div>
-
-        {/* Right: Properties panel */}
         <PropertiesPanel />
+      </div>
+
+      {/* Mobile layout (< md) */}
+      <div className="flex md:hidden flex-1 overflow-hidden flex-col">
+        <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'media' ? 'flex' : 'hidden'}`}>
+          <MediaPanel />
+        </div>
+        <div className={`flex-1 overflow-hidden flex-col ${activeTab === 'video' ? 'flex' : 'hidden'}`}>
+          <VideoPreview />
+          <Timeline />
+        </div>
+        <div className={`flex-1 overflow-hidden flex flex-col ${activeTab === 'props' ? 'flex' : 'hidden'}`}>
+          <PropertiesPanel />
+        </div>
+
+        {/* Bottom tab bar */}
+        <nav className="flex-shrink-0 flex border-t border-gray-800 bg-gray-900">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs transition-colors ${
+                activeTab === tab.id
+                  ? 'text-indigo-400 border-t-2 border-indigo-400'
+                  : 'text-gray-500 border-t-2 border-transparent'
+              }`}
+            >
+              <span className="text-base leading-none">{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
       </div>
     </div>
   )

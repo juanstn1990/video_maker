@@ -27,7 +27,7 @@ export function PropertiesPanel() {
   ]
 
   return (
-    <aside className="flex flex-col h-full bg-gray-900 border-l border-gray-800 w-[300px] flex-shrink-0">
+    <aside className="flex flex-col h-full bg-gray-900 border-l border-gray-800 w-full md:w-[300px] flex-shrink-0">
       {/* Tabs */}
       <div className="flex border-b border-gray-800">
         {tabs.map((t) => (

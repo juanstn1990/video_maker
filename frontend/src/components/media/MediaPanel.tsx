@@ -4,6 +4,7 @@ import { useEditorStore } from '../../store/useEditorStore'
 import { Button } from '../ui/Button'
 import type { UploadedMedia } from '../../types/api'
 
+
 async function uploadFile(file: File): Promise<UploadedMedia> {
   const form = new FormData()
   form.append('file', file)
@@ -23,7 +24,7 @@ async function uploadFile(file: File): Promise<UploadedMedia> {
 }
 
 export function MediaPanel() {
-  const { items, addMedia } = useMediaStore()
+  const { items, addMedia, removeMedia } = useMediaStore()
   const { addImageClip, addImageClips, addTitleClip, setAudioTrack, config } = useEditorStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -89,8 +90,16 @@ export function MediaPanel() {
     e.dataTransfer.effectAllowed = 'copy'
   }
 
+  function deleteMedia(mediaId: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    // If this audio is the active track, deactivate it first
+    if (config.audioTrack?.mediaId === mediaId) setAudioTrack(null)
+    removeMedia(mediaId)
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(mediaId); return next })
+  }
+
   return (
-    <aside className="flex flex-col h-full bg-gray-900 border-r border-gray-800 w-[280px] flex-shrink-0">
+    <aside className="flex flex-col h-full bg-gray-900 border-r border-gray-800 w-full md:w-[280px] flex-shrink-0">
       <div className="p-3 border-b border-gray-800">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Media</h2>
 
@@ -105,9 +114,17 @@ export function MediaPanel() {
           onClick={() => fileRef.current?.click()}
         >
           <p className="text-xs text-gray-400">
-            {uploading ? 'Subiendo...' : 'Arrastra imágenes o audio aquí'}
+            {uploading ? 'Subiendo...' : (
+              <>
+                <span className="hidden md:inline">Arrastra imágenes o audio aquí</span>
+                <span className="inline md:hidden">Toca para subir fotos o audio</span>
+              </>
+            )}
           </p>
-          <p className="text-xs text-gray-600 mt-1">o haz click para seleccionar</p>
+          <p className="text-xs text-gray-600 mt-1">
+            <span className="hidden md:inline">o haz click para seleccionar</span>
+            <span className="inline md:hidden">JPG, PNG, MP3...</span>
+          </p>
         </div>
         <input
           ref={fileRef}
@@ -155,10 +172,13 @@ export function MediaPanel() {
                 )}
               </div>
             </div>
-            <p className="text-[10px] text-gray-600 mb-2">
+            <p className="text-[10px] text-gray-600 mb-2 hidden md:block">
               Click → agregar · Checkbox → seleccionar · Drag → arrastrar al timeline
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <p className="text-[10px] text-gray-600 mb-2 md:hidden">
+              Toca → agregar · ✓ → seleccionar
+            </p>
+            <div className="grid grid-cols-3 md:grid-cols-2 gap-2">
               {images.map((img) => {
                 const isSelected = selectedIds.has(img.mediaId)
                 return (
@@ -189,15 +209,24 @@ export function MediaPanel() {
 
                     {/* Checkbox to toggle multi-select */}
                     <button
-                      className={`absolute top-1 left-1 w-5 h-5 rounded flex items-center justify-center text-xs font-bold transition-all z-10 ${
+                      className={`absolute top-1 left-1 w-6 h-6 rounded flex items-center justify-center text-xs font-bold transition-all z-10 ${
                         isSelected
                           ? 'bg-indigo-500 text-white opacity-100'
-                          : 'bg-black/60 text-gray-300 opacity-0 group-hover:opacity-100'
+                          : 'bg-black/60 text-gray-300 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-60'
                       }`}
                       onClick={(e) => toggleSelect(img.mediaId, e)}
                       title="Seleccionar"
                     >
                       {isSelected ? '✓' : '·'}
+                    </button>
+
+                    {/* Delete button — visible on hover (desktop) or always (touch) */}
+                    <button
+                      onClick={(e) => deleteMedia(img.mediaId, e)}
+                      title="Eliminar"
+                      className="absolute top-1 right-1 z-20 w-6 h-6 flex items-center justify-center rounded-full bg-red-600/90 text-white text-xs font-bold opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-80 focus:opacity-100 active:opacity-100 transition-opacity hover:bg-red-500"
+                    >
+                      ✕
                     </button>
                   </div>
                 )
@@ -221,7 +250,7 @@ export function MediaPanel() {
                 return (
                   <div
                     key={aud.mediaId}
-                    className={`w-full text-left px-3 py-2 rounded text-xs transition-colors flex items-center gap-2 cursor-grab active:cursor-grabbing ${
+                    className={`relative group w-full text-left px-3 py-2 rounded text-xs transition-colors flex items-center gap-2 cursor-grab active:cursor-grabbing ${
                       isActive
                         ? 'bg-indigo-600 text-white'
                         : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -244,7 +273,14 @@ export function MediaPanel() {
                     }}
                   >
                     <span className="text-base flex-shrink-0">{isActive ? '♪' : '♩'}</span>
-                    <span className="truncate">{aud.filename}</span>
+                    <span className="truncate flex-1">{aud.filename}</span>
+                    <button
+                      onClick={(e) => deleteMedia(aud.mediaId, e)}
+                      title="Eliminar"
+                      className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-red-600/90 text-white text-xs font-bold opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:bg-red-500 ml-1"
+                    >
+                      ✕
+                    </button>
                   </div>
                 )
               })}
