@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 interface WatermarkRecord {
   id: number
+  token: string
   job_id: string
   phone: string
   song_name: string
@@ -24,6 +25,8 @@ export function BibliotecaPage() {
   const [cleanupResult, setCleanupResult] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [linkOpenId, setLinkOpenId] = useState<number | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -77,7 +80,7 @@ export function BibliotecaPage() {
   function handleDownload(record: WatermarkRecord) {
     setDownloading(record.id)
     const a = document.createElement('a')
-    a.href = `/api/biblioteca/download/${record.id}`
+    a.href = `/api/biblioteca/download/${record.token}`
     a.download = record.output_filename.replace(/^watermarked_/, '')
     a.click()
     setTimeout(() => setDownloading(null), 2000)
@@ -121,6 +124,25 @@ export function BibliotecaPage() {
       setCleanupLoading(false)
       setCleanupConfirm(false)
     }
+  }
+
+  function handleLinkToggle(id: number) {
+    if (linkOpenId === id) {
+      setLinkOpenId(null)
+      setLinkCopied(false)
+    } else {
+      setLinkOpenId(id)
+      setLinkCopied(false)
+    }
+  }
+
+  function handleCopyLink(record: WatermarkRecord) {
+    const url = `${window.location.origin}/api/biblioteca/download/${record.token}`
+    const msg = `Este es tu enlace de descarga para que puedas tener la canción en tu celular:\n${url}`
+    navigator.clipboard.writeText(msg).then(() => {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2500)
+    })
   }
 
   async function handleDeleteOne(id: number) {
@@ -300,6 +322,19 @@ export function BibliotecaPage() {
                       {downloading === rec.id ? '✓ Descargando' : '⬇ Descargar'}
                     </button>
 
+                    {/* Link */}
+                    <button
+                      onClick={() => handleLinkToggle(rec.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all flex-1 justify-center sm:flex-none ${
+                        linkOpenId === rec.id
+                          ? 'bg-amber-600/30 text-amber-300 border border-amber-600/40'
+                          : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700'
+                      }`}
+                    >
+                      🔗 Enlace
+                    </button>
+
+
                     {/* Delete */}
                     {deleteConfirmId === rec.id ? (
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -328,6 +363,20 @@ export function BibliotecaPage() {
                       </button>
                     )}
                   </div>
+                  {/* Link panel */}
+                  {linkOpenId === rec.id && (
+                    <div className="w-full mt-1 bg-amber-950/30 border border-amber-700/40 rounded-xl p-3 flex flex-col gap-2">
+                      <pre className="text-xs text-amber-100 whitespace-pre-wrap break-all leading-relaxed font-sans select-all cursor-text">
+                        {`Este es tu enlace de descarga para que puedas tener la canción en tu celular:\n${window.location.origin}/api/biblioteca/download/${rec.token}`}
+                      </pre>
+                      <button
+                        onClick={() => handleCopyLink(rec)}
+                        className="self-end flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-700/40 hover:bg-amber-700/60 text-amber-200 border border-amber-600/40 transition-colors"
+                      >
+                        {linkCopied ? '✓ Copiado' : '📋 Copiar mensaje'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

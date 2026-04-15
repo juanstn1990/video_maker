@@ -1,9 +1,45 @@
 import { Router } from 'express'
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 import { pool } from '../db'
 
 const router = Router()
+
+// ── Token helpers ──────────────────────────────────────────────────────────
+const DOWNLOAD_SECRET = process.env.DOWNLOAD_SECRET ?? 'cambia-esto-en-produccion'
+
+function signId(id: number): string {
+  const hmac = crypto
+    .createHmac('sha256', DOWNLOAD_SECRET)
+    .update(id.toString())
+    .digest('hex')
+    .slice(0, 24) // 12 bytes de entropía es suficiente
+  return Buffer.from(`${id}:${hmac}`).toString('base64url')
+}
+
+function verifyToken(token: string): number | null {
+  try {
+    const decoded = Buffer.from(token, 'base64url').toString('utf8')
+    const colonIdx = decoded.lastIndexOf(':')
+    if (colonIdx === -1) return null
+    const idStr = decoded.slice(0, colonIdx)
+    const givenHmac = decoded.slice(colonIdx + 1)
+    const id = parseInt(idStr, 10)
+    if (isNaN(id)) return null
+    const expected = crypto
+      .createHmac('sha256', DOWNLOAD_SECRET)
+      .update(id.toString())
+      .digest('hex')
+      .slice(0, 24)
+    // timing-safe compare
+    if (givenHmac.length !== expected.length) return null
+    const match = crypto.timingSafeEqual(Buffer.from(givenHmac), Buffer.from(expected))
+    return match ? id : null
+  } catch {
+    return null
+  }
+}
 
 // Search records by phone or song name
 router.get('/biblioteca/search', async (req, res) => {
@@ -29,7 +65,11 @@ router.get('/biblioteca/search', async (req, res) => {
         [`%${q}%`],
       )
     }
-    res.json({ records: result.rows })
+    const records = result.rows.map((r: { id: number; [key: string]: unknown }) => ({
+      ...r,
+      token: signId(r.id),
+    }))
+    res.json({ records })
   } catch (err) {
     console.error('Error en búsqueda:', err)
     res.status(500).json({ error: 'Error al buscar registros' })
@@ -77,11 +117,11 @@ router.get('/biblioteca/stream/:id', async (req, res) => {
   }
 })
 
-// Download original (without watermark) by record id
-router.get('/biblioteca/download/:id', async (req, res) => {
-  const id = parseInt(req.params.id, 10)
-  if (isNaN(id)) {
-    res.status(400).json({ error: 'ID inválido' })
+// Download original (without watermark) by signed token
+router.get('/biblioteca/download/:token', async (req, res) => {
+  const id = verifyToken(req.params.token)
+  if (id === null) {
+    res.status(400).json({ error: 'Enlace inválido o expirado' })
     return
   }
 
