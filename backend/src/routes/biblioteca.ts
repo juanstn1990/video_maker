@@ -145,4 +145,42 @@ router.delete('/biblioteca/cleanup', async (_req, res) => {
   }
 })
 
+// Delete a single record by id and its associated files (must be AFTER /cleanup)
+router.delete('/biblioteca/:id', async (req, res) => {
+  const id = parseInt(req.params.id, 10)
+  if (isNaN(id)) {
+    res.status(400).json({ error: 'ID inválido' })
+    return
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, output_path FROM watermark_records WHERE id = $1`,
+      [id],
+    )
+
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Registro no encontrado' })
+      return
+    }
+
+    const { output_path } = result.rows[0]
+
+    try {
+      const jobDir = path.dirname(output_path)
+      if (fs.existsSync(jobDir)) {
+        fs.rmSync(jobDir, { recursive: true, force: true })
+      }
+    } catch {
+      // File removal errors are non-fatal
+    }
+
+    await pool.query('DELETE FROM watermark_records WHERE id = $1', [id])
+    res.json({ deleted: 1 })
+  } catch (err) {
+    console.error('Error al borrar registro:', err)
+    res.status(500).json({ error: 'Error al borrar el registro' })
+  }
+})
+
 export { router as bibliotecaRouter }

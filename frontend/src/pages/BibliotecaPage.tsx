@@ -22,6 +22,8 @@ export function BibliotecaPage() {
   const [cleanupConfirm, setCleanupConfirm] = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [cleanupResult, setCleanupResult] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -33,7 +35,6 @@ export function BibliotecaPage() {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
       hour12: false,
     })
   }
@@ -83,28 +84,20 @@ export function BibliotecaPage() {
   }
 
   function handlePlay(record: WatermarkRecord) {
-    // If same record is playing, pause it
     if (playingId === record.id) {
       audioRef.current?.pause()
       setPlayingId(null)
       return
     }
-
-    // Stop any currently playing audio
     audioRef.current?.pause()
-
     const audio = new Audio(`/api/biblioteca/stream/${record.id}`)
     audioRef.current = audio
-
     audio.addEventListener('ended', () => setPlayingId(null))
     audio.addEventListener('error', () => {
       setPlayingId(null)
       setError('No se pudo reproducir el archivo de audio')
     })
-
-    audio.play().then(() => {
-      setPlayingId(record.id)
-    }).catch(() => {
+    audio.play().then(() => setPlayingId(record.id)).catch(() => {
       setPlayingId(null)
       setError('No se pudo reproducir el archivo de audio')
     })
@@ -130,47 +123,66 @@ export function BibliotecaPage() {
     }
   }
 
+  async function handleDeleteOne(id: number) {
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/biblioteca/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Error al borrar')
+      if (playingId === id) {
+        audioRef.current?.pause()
+        setPlayingId(null)
+      }
+      setRecords((prev) => prev.filter((r) => r.id !== id))
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Error al borrar')
+    } finally {
+      setDeletingId(null)
+      setDeleteConfirmId(null)
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-950">
       {/* Header */}
-      <header className="flex items-center gap-3 px-5 py-3 bg-gray-900 border-b border-gray-800 flex-shrink-0">
+      <header className="flex items-center gap-3 px-4 py-3 bg-gray-900 border-b border-gray-800 flex-shrink-0">
         <button
           onClick={() => navigate('/')}
-          className="text-gray-500 hover:text-gray-200 transition-colors text-sm flex items-center gap-1"
+          className="text-gray-500 hover:text-gray-200 transition-colors text-sm flex items-center gap-1 shrink-0"
         >
           ← Inicio
         </button>
-        <div className="w-px h-4 bg-gray-700" />
-        <div className="flex items-center gap-2">
-          <span className="text-lg">📚</span>
-          <span className="text-sm font-semibold text-white">Biblioteca de Canciones</span>
+        <div className="w-px h-4 bg-gray-700 shrink-0" />
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-lg shrink-0">📚</span>
+          <span className="text-sm font-semibold text-white truncate">Biblioteca de Canciones</span>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 shrink-0">
           <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center text-white text-[10px] font-bold">
             CL
           </div>
-          <span className="text-xs text-gray-500">Creaciones Lalis</span>
+          <span className="text-xs text-gray-500 hidden sm:block">Creaciones Lalis</span>
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center py-10 px-4">
-        <div className="w-full max-w-3xl flex flex-col gap-5">
+      <div className="flex-1 flex flex-col items-center py-6 px-3 sm:px-4">
+        <div className="w-full max-w-3xl flex flex-col gap-4">
 
           {/* Search + Cleanup */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-white">Buscar canciones entregadas</h2>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h2 className="text-base font-semibold text-white">Canciones entregadas</h2>
               {/* Cleanup button */}
               {!cleanupConfirm ? (
                 <button
                   onClick={() => { setCleanupConfirm(true); setCleanupResult(null) }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-800/40 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-800/40 transition-colors shrink-0"
                 >
                   🗑 Borrar &gt;1 mes
                 </button>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="text-xs text-gray-400">¿Seguro?</span>
                   <button
                     onClick={handleCleanup}
@@ -193,7 +205,7 @@ export function BibliotecaPage() {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
               <input
                 type="text"
-                placeholder="Buscar por celular o nombre de canción..."
+                placeholder="Buscar por celular o canción..."
                 value={query}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full bg-gray-900 border border-gray-700 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
@@ -232,77 +244,92 @@ export function BibliotecaPage() {
             </div>
           )}
 
-          {/* Records table */}
+          {/* Records — card list (mobile-first) */}
           {!loading && records.length > 0 && (
-            <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-              {/* Table header */}
-              <div className="grid grid-cols-[1fr_1.5fr_1fr_auto] gap-3 px-4 py-2.5 bg-gray-800/60 border-b border-gray-800">
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Celular</span>
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Canción</span>
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Fecha y hora</span>
-                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Acciones</span>
-              </div>
-
-              {/* Rows */}
-              <div className="divide-y divide-gray-800/50">
-                {records.map((rec) => (
-                  <div
-                    key={rec.id}
-                    className="grid grid-cols-[1fr_1.5fr_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-gray-800/30 transition-colors"
-                  >
-                    {/* Phone */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm">📱</span>
+            <div className="flex flex-col gap-2">
+              {records.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 flex flex-col gap-2 hover:border-gray-700 transition-colors"
+                >
+                  {/* Top row: phone + date */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm shrink-0">📱</span>
                       <span className="text-sm text-white font-mono truncate">{rec.phone}</span>
                     </div>
-
-                    {/* Song name */}
-                    <div className="min-w-0">
-                      <p className="text-sm text-white truncate" title={rec.song_name}>
-                        {rec.song_name}
-                      </p>
-                      <p className="text-[11px] text-gray-600 truncate" title={rec.output_filename.replace(/^watermarked_/, '')}>
-                        {rec.output_filename.replace(/^watermarked_/, '')}
-                      </p>
-                    </div>
-
-                    {/* Date */}
-                    <div className="min-w-0">
-                      <p className="text-xs text-gray-400 tabular-nums">{formatDate(rec.created_at)}</p>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-1.5">
-                      {/* Play button */}
-                      <button
-                        onClick={() => handlePlay(rec)}
-                        title={playingId === rec.id ? 'Pausar' : 'Reproducir'}
-                        className={`flex items-center justify-center w-8 h-8 rounded-lg text-sm transition-all ${
-                          playingId === rec.id
-                            ? 'bg-emerald-600/30 text-emerald-400 border border-emerald-600/40'
-                            : 'bg-gray-700/40 hover:bg-gray-700/70 text-gray-400 hover:text-white border border-gray-700/40'
-                        }`}
-                      >
-                        {playingId === rec.id ? '⏸' : '▶'}
-                      </button>
-
-                      {/* Download button */}
-                      <button
-                        onClick={() => handleDownload(rec)}
-                        disabled={downloading === rec.id}
-                        title="Descargar (sin marca de agua)"
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          downloading === rec.id
-                            ? 'bg-green-800/30 text-green-400 cursor-default'
-                            : 'bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-600/30'
-                        }`}
-                      >
-                        {downloading === rec.id ? '✓ Descargando' : '⬇ Descargar'}
-                      </button>
-                    </div>
+                    <span className="text-[11px] text-gray-500 tabular-nums shrink-0">
+                      {formatDate(rec.created_at)}
+                    </span>
                   </div>
-                ))}
-              </div>
+
+                  {/* Song name */}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate" title={rec.song_name}>
+                      🎵 {rec.song_name}
+                    </p>
+                    <p className="text-[11px] text-gray-600 truncate mt-0.5" title={rec.output_filename.replace(/^watermarked_/, '')}>
+                      {rec.output_filename.replace(/^watermarked_/, '')}
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Play */}
+                    <button
+                      onClick={() => handlePlay(rec)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all flex-1 justify-center sm:flex-none ${
+                        playingId === rec.id
+                          ? 'bg-emerald-600/30 text-emerald-400 border border-emerald-600/40'
+                          : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700'
+                      }`}
+                    >
+                      {playingId === rec.id ? '⏸ Pausar' : '▶ Reproducir'}
+                    </button>
+
+                    {/* Download */}
+                    <button
+                      onClick={() => handleDownload(rec)}
+                      disabled={downloading === rec.id}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all flex-1 justify-center sm:flex-none ${
+                        downloading === rec.id
+                          ? 'bg-green-800/30 text-green-400 cursor-default border border-green-700/30'
+                          : 'bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-600/30'
+                      }`}
+                    >
+                      {downloading === rec.id ? '✓ Descargando' : '⬇ Descargar'}
+                    </button>
+
+                    {/* Delete */}
+                    {deleteConfirmId === rec.id ? (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-gray-400">¿Borrar?</span>
+                        <button
+                          onClick={() => handleDeleteOne(rec.id)}
+                          disabled={deletingId === rec.id}
+                          className="px-3 py-2 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white transition-colors disabled:opacity-50"
+                        >
+                          {deletingId === rec.id ? 'Borrando...' : 'Sí'}
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(null)}
+                          className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeleteConfirmId(rec.id)}
+                        title="Borrar registro"
+                        className="flex items-center justify-center w-9 h-9 rounded-lg text-sm bg-red-900/20 hover:bg-red-900/40 text-red-400 border border-red-800/30 transition-colors ml-auto"
+                      >
+                        🗑
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
