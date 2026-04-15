@@ -5,6 +5,7 @@ import { VideoPreview } from '../preview/VideoPreview'
 import { Timeline } from '../timeline/Timeline'
 import { PropertiesPanel } from '../panels/PropertiesPanel'
 import { ExportModal } from '../export/ExportModal'
+import { ProjectsModal } from '../projects/ProjectsModal'
 import { useEditorStore } from '../../store/useEditorStore'
 import type { VideoResolution } from '../../types/video'
 
@@ -32,8 +33,43 @@ const TABS: { id: MobileTab; label: string; icon: string }[] = [
 
 export function EditorLayout() {
   const navigate = useNavigate()
-  const { config, updateSettings } = useEditorStore()
+  const { config, savedProjectId, setSavedProjectId, updateSettings } = useEditorStore()
   const [activeTab, setActiveTab] = useState<MobileTab>('video')
+  const [showProjects, setShowProjects] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+
+  async function handleSave() {
+    setSaving(true)
+    setSaveMsg(null)
+    try {
+      const body = JSON.stringify({ name: config.name, config })
+      let r: Response
+      if (savedProjectId) {
+        r = await fetch(`/api/projects/${savedProjectId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        })
+      } else {
+        r = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        })
+      }
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error)
+      setSavedProjectId(data.project.id)
+      setSaveMsg('Guardado')
+      setTimeout(() => setSaveMsg(null), 2000)
+    } catch (err: any) {
+      setSaveMsg(err.message || 'Error al guardar')
+      setTimeout(() => setSaveMsg(null), 3000)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="flex flex-col h-[100dvh] bg-gray-950 text-gray-100 overflow-hidden">
@@ -76,9 +112,30 @@ export function EditorLayout() {
             ))}
           </select>
 
+          {/* Save button */}
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="text-xs bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-300 border border-gray-700 rounded px-2 py-1 transition-colors flex-shrink-0"
+            title="Guardar proyecto"
+          >
+            {saving ? '...' : saveMsg ?? '💾'}
+          </button>
+
+          {/* Open projects */}
+          <button
+            onClick={() => setShowProjects(true)}
+            className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded px-2 py-1 transition-colors flex-shrink-0"
+            title="Mis proyectos"
+          >
+            📂
+          </button>
+
           <ExportModal />
         </div>
       </header>
+
+      {showProjects && <ProjectsModal onClose={() => setShowProjects(false)} />}
 
       {/* ─── Main area — desktop: 3 columns, mobile: single panel ─── */}
 

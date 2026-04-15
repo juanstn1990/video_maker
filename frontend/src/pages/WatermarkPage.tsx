@@ -7,6 +7,7 @@ type JobStatus = 'idle' | 'uploading' | 'processing' | 'done' | 'error'
 export function WatermarkPage() {
   const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
+  const [phone, setPhone] = useState('')
   const [intervalSecs, setIntervalSecs] = useState(8)
   const [volume, setVolume] = useState(1.2)
   const [mode, setMode] = useState<'preview' | 'full'>('preview')
@@ -36,6 +37,11 @@ export function WatermarkPage() {
 
   async function handleProcess() {
     if (!file) return
+    if (!phone.trim()) {
+      setStatus('error')
+      setMessage('El celular del cliente es obligatorio')
+      return
+    }
     setStatus('uploading')
     setProgress(5)
     setMessage('Subiendo archivo...')
@@ -43,6 +49,7 @@ export function WatermarkPage() {
 
     const form = new FormData()
     form.append('audio', file)
+    form.append('phone', phone.trim())
     form.append('interval', String(intervalSecs))
     form.append('volume', String(volume))
     form.append('mode', mode)
@@ -96,6 +103,7 @@ export function WatermarkPage() {
   function handleReset() {
     stopPolling()
     setFile(null)
+    setPhone('')
     setStatus('idle')
     setProgress(0)
     setMessage('')
@@ -168,6 +176,21 @@ export function WatermarkPage() {
                 <p className="text-gray-600 text-xs mt-1">o haz clic para seleccionar — MP3, WAV, M4A...</p>
               </div>
             )}
+          </div>
+
+          {/* Phone */}
+          <div className="bg-gray-900 rounded-xl border border-indigo-800/50 p-5 flex flex-col gap-2">
+            <label className="text-xs font-semibold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>📱</span> Celular del cliente <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="tel"
+              placeholder="Ej: 3001234567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+            <p className="text-[11px] text-gray-600">Requerido para registrar la entrega de la canción</p>
           </div>
 
           {/* Config */}
@@ -282,7 +305,7 @@ export function WatermarkPage() {
               <Button
                 variant="primary"
                 onClick={handleProcess}
-                disabled={!file || status === 'uploading' || status === 'processing'}
+                disabled={!file || !phone.trim() || status === 'uploading' || status === 'processing'}
                 className="flex-1"
               >
                 {status === 'uploading' || status === 'processing' ? 'Procesando...' : 'Agregar marca de agua'}

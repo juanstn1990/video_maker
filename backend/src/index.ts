@@ -12,6 +12,9 @@ import { transcribeRouter } from './routes/transcribe'
 import { watermarkRouter } from './routes/watermark'
 import { audioPreviewRouter } from './routes/audioPreview'
 import { ruletaRouter } from './routes/ruleta'
+import { bibliotecaRouter } from './routes/biblioteca'
+import { projectsRouter } from './routes/projects'
+import { initDb } from './db'
 
 const app = express()
 const PORT = Number(process.env.PORT) || 3001
@@ -31,6 +34,8 @@ app.use('/api', transcribeRouter)
 app.use('/api', watermarkRouter)
 app.use('/api', audioPreviewRouter)
 app.use('/api', ruletaRouter)
+app.use('/api', bibliotecaRouter)
+app.use('/api', projectsRouter)
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })
@@ -43,6 +48,13 @@ if (fs.existsSync(FRONTEND_DIST)) {
   app.get('*', (_req, res) => res.sendFile(path.join(FRONTEND_DIST, 'index.html')))
 }
 
-app.listen(PORT, () => {
-  console.log(`Backend corriendo en http://localhost:${PORT}`)
-})
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Backend corriendo en http://localhost:${PORT}`)
+    })
+  })
+  .catch((err) => {
+    console.error('Error conectando a la base de datos:', err)
+    process.exit(1)
+  })

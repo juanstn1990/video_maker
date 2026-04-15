@@ -5,6 +5,7 @@ import fs from 'fs'
 import { execFile } from 'child_process'
 import { v4 as uuidv4 } from 'uuid'
 import { UPLOADS_DIR } from './upload'
+import { pool } from '../db'
 
 const router = Router()
 
@@ -32,9 +33,15 @@ interface WatermarkJob {
 
 const jobs: Record<string, WatermarkJob> = {}
 
-router.post('/watermark', upload.single('audio'), (req, res) => {
+router.post('/watermark', upload.single('audio'), async (req, res) => {
   if (!req.file) {
     res.status(400).json({ error: 'Se requiere un archivo de audio' })
+    return
+  }
+
+  const phone = (req.body.phone ?? '').trim()
+  if (!phone) {
+    res.status(400).json({ error: 'El celular del cliente es obligatorio' })
     return
   }
 
@@ -51,17 +58,22 @@ router.post('/watermark', upload.single('audio'), (req, res) => {
   const jobDir = path.join(UPLOADS_DIR, `wm_${jobId}`)
   fs.mkdirSync(jobDir, { recursive: true })
 
-  const originalName = req.file.originalname || 'audio.mp3'
+  // Fix multer's latin1 mis-decoding of UTF-8 filenames (e.g. "LeÃ³n" → "León")
+  const rawName = req.file.originalname || 'audio.mp3'
+  const originalName = Buffer.from(rawName, 'binary').toString('utf8')
   const ext = path.extname(originalName) || '.mp3'
   const inputPath = path.join(jobDir, `input${ext}`)
   const outputName = `watermarked_${originalName}`
   const outputPath = path.join(jobDir, outputName)
 
+  // Song name = original filename without extension
+  const songName = path.basename(originalName, path.extname(originalName))
+
   fs.renameSync(req.file.path, inputPath)
 
   jobs[jobId] = { status: 'processing', progress: 10, message: 'Iniciando...' }
 
-  processWatermark(jobId, inputPath, outputPath, outputName, interval, volume, preview)
+  processWatermark(jobId, inputPath, outputPath, outputName, interval, volume, preview, phone, songName)
 
   res.json({ job_id: jobId })
 })
@@ -74,11 +86,12 @@ function processWatermark(
   interval: number,
   volume: number,
   preview: boolean,
+  phone: string,
+  songName: string,
 ) {
   jobs[jobId].message = 'Obteniendo duración del audio...'
   jobs[jobId].progress = 15
 
-  // Get audio duration via ffprobe
   execFile(
     'ffprobe',
     ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', inputPath],
@@ -100,9 +113,6 @@ function processWatermark(
       const effectiveDuration = preview ? Math.min(duration, 60) : duration
       const numWatermarks = Math.max(1, Math.floor(effectiveDuration / interval))
 
-      // Build ffmpeg filter_complex:
-      // Input 0: main song, Input 1: watermark file
-      // Delay each watermark copy to its interval position, then amix everything
       const filterParts: string[] = []
       const mixInputs: string[] = ['[0:a]']
 
@@ -131,13 +141,24 @@ function processWatermark(
           '-y',
           outputPath,
         ],
-        (ffErr) => {
+        async (ffErr) => {
           if (ffErr) {
             jobs[jobId] = { status: 'error', progress: 0, message: `Error en ffmpeg: ${ffErr.message}` }
             return
           }
 
           jobs[jobId] = { status: 'done', progress: 100, message: 'Listo', outputPath, outputName }
+
+          // Save record to PostgreSQL
+          try {
+            await pool.query(
+              `INSERT INTO watermark_records (job_id, phone, song_name, output_filename, output_path, input_path)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [jobId, phone, songName, outputName, outputPath, inputPath],
+            )
+          } catch (dbErr) {
+            console.error('Error guardando en DB:', dbErr)
+          }
         },
       )
     },

@@ -23,6 +23,12 @@ function uid(): string {
 
 interface EditorStore {
   config: VideoConfig
+  savedProjectId: string | null   // DB row ID of the last saved project
+
+  // Project persistence
+  setSavedProjectId: (id: string | null) => void
+  loadConfig: (config: VideoConfig, dbId: string) => void
+  resetProject: () => void
 
   // Clip mutations
   addImageClip: (mediaId: string, mediaUrl: string) => void
@@ -60,18 +66,36 @@ interface EditorStore {
 
 const DEFAULT_CLIP_DURATION_FRAMES = 90 // 3 seconds at 30fps
 
+const DEFAULT_CONFIG = (): VideoConfig => ({
+  id: uid(),
+  name: 'Mi Video',
+  resolution: '1080x1920',
+  fps: 15,
+  clips: [],
+  audioTrack: null,
+  subtitleConfig: null,
+  totalFrames: 0,
+})
+
 export const useEditorStore = create<EditorStore>()(
   immer((set) => ({
-    config: {
-      id: uid(),
-      name: 'Mi Video',
-      resolution: '1080x1920',
-      fps: 15,
-      clips: [],
-      audioTrack: null,
-      subtitleConfig: null,
-      totalFrames: 0,
-    },
+    config: DEFAULT_CONFIG(),
+    savedProjectId: null,
+
+    setSavedProjectId: (id) =>
+      set((state) => { state.savedProjectId = id }),
+
+    loadConfig: (config, dbId) =>
+      set((state) => {
+        state.config = config
+        state.savedProjectId = dbId
+      }),
+
+    resetProject: () =>
+      set((state) => {
+        state.config = DEFAULT_CONFIG()
+        state.savedProjectId = null
+      }),
 
     addImageClip: (mediaId, mediaUrl) =>
       set((state) => {

@@ -12,7 +12,30 @@ export function ExportModal() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [fastMode, setFastMode] = useState(false)
   const esRef = useRef<EventSource | null>(null)
-  const config = useEditorStore((s) => s.config)
+  const { config, savedProjectId, setSavedProjectId } = useEditorStore()
+
+  async function autoSave() {
+    try {
+      const body = JSON.stringify({ name: config.name, config })
+      const r = savedProjectId
+        ? await fetch(`/api/projects/${savedProjectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          })
+        : await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          })
+      if (r.ok) {
+        const data = await r.json()
+        setSavedProjectId(data.project.id)
+      }
+    } catch {
+      // auto-save failure is non-blocking
+    }
+  }
 
   function close() {
     if (phase === 'rendering') return  // can't close while rendering
@@ -26,6 +49,8 @@ export function ExportModal() {
   async function startRender() {
     setPhase('rendering')
     setProgress(0)
+    setMessage('Guardando proyecto...')
+    await autoSave()
     setMessage('Enviando configuración...')
 
     try {

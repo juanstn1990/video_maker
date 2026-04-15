@@ -3,18 +3,40 @@ import { VideoSlideshow } from '../../remotion/VideoSlideshow'
 import { useEditorStore } from '../../store/useEditorStore'
 import { useTimelineStore } from '../../store/useTimelineStore'
 import { useRef, useEffect } from 'react'
-import type { PlayerRef } from '@remotion/player'
+import type { PlayerRef, CallbackListener } from '@remotion/player'
 
 export function VideoPreview() {
   const config = useEditorStore((s) => s.config)
   const { currentFrame, setCurrentFrame } = useTimelineStore()
   const playerRef = useRef<PlayerRef>(null)
+  const isPlayingRef = useRef(false)
   const [w, h] = config.resolution.split('x').map(Number)
   const totalFrames = Math.max(1, config.totalFrames)
 
-  // Sync player to timeline scrubber
+  // Sync player → timeline scrubber during playback
   useEffect(() => {
-    if (playerRef.current) {
+    const player = playerRef.current
+    if (!player) return
+
+    function onPlay() { isPlayingRef.current = true }
+    function onPause() { isPlayingRef.current = false }
+    const onTimeUpdate: CallbackListener<'timeupdate'> = ({ detail: { frame } }) => {
+      if (isPlayingRef.current) setCurrentFrame(frame)
+    }
+
+    player.addEventListener('play', onPlay)
+    player.addEventListener('pause', onPause)
+    player.addEventListener('timeupdate', onTimeUpdate)
+    return () => {
+      player.removeEventListener('play', onPlay)
+      player.removeEventListener('pause', onPause)
+      player.removeEventListener('timeupdate', onTimeUpdate)
+    }
+  }, [setCurrentFrame])
+
+  // Sync timeline scrubber → player (only when paused to avoid interrupting playback)
+  useEffect(() => {
+    if (!isPlayingRef.current && playerRef.current) {
       playerRef.current.seekTo(currentFrame)
     }
   }, [currentFrame])

@@ -37,23 +37,37 @@ uploadRouter.post('/upload', upload.single('file'), async (req: Request, res: Re
 
   try {
     if (isImage) {
+      const img = sharp(file.path)
+      const meta = await img.metadata()
+
+      // Always convert to JPEG for web compatibility (fixes HEIC, TIFF, AVIF from iPhones, etc.)
+      const webFilename = `${mediaId}.jpg`
+      const webPath = path.join(UPLOADS_DIR, webFilename)
+      const needsConversion = !['jpeg', 'jpg', 'png', 'webp', 'gif'].includes((meta.format ?? '').toLowerCase())
+      if (needsConversion || meta.format !== 'jpeg') {
+        await sharp(file.path)
+          .jpeg({ quality: 92 })
+          .toFile(webPath)
+      } else {
+        // Already JPEG – just copy so we have a consistent filename pattern
+        fs.copyFileSync(file.path, webPath)
+      }
+
       // Generate thumbnail
       const thumbFilename = `${mediaId}_thumb.jpg`
       const thumbPath = path.join(UPLOADS_DIR, thumbFilename)
-      const meta = await sharp(file.path)
+      await sharp(file.path)
         .resize(200, 200, { fit: 'inside' })
         .jpeg({ quality: 80 })
         .toFile(thumbPath)
 
-      const full = await sharp(file.path).metadata()
-
       const response: UploadResponse = {
         mediaId,
         filename: file.originalname,
-        url: fileUrl,
+        url: `/uploads/${webFilename}`,
         type: 'image',
-        width: full.width,
-        height: full.height,
+        width: meta.width,
+        height: meta.height,
         thumbnailUrl: `/uploads/${thumbFilename}`,
       }
       res.json(response)

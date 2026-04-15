@@ -58,7 +58,7 @@ export function TimelineClip({ clip, index, zoom }: Props) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative h-12 rounded flex-shrink-0 flex items-center select-none border-2 ${bgColor} ${borderColor} cursor-pointer`}
+      className={`group relative h-12 rounded flex-shrink-0 flex items-center select-none border-2 ${bgColor} ${borderColor} cursor-pointer`}
       onClick={() => selectClip(isSelected ? null : clip.id)}
       {...attributes}
       {...listeners}
@@ -79,17 +79,20 @@ export function TimelineClip({ clip, index, zoom }: Props) {
         )}
       </div>
 
-      {/* Delete button */}
+      {/* Delete button — visible on hover */}
       <button
-        className="absolute top-0.5 right-5 text-white/60 hover:text-white text-xs leading-none"
+        className="absolute top-0 right-0 bottom-0 w-7 flex items-center justify-center
+          opacity-0 group-hover:opacity-100 transition-opacity
+          bg-red-600/80 hover:bg-red-600 rounded-r text-white text-xs font-bold z-10"
         onClick={(e) => { e.stopPropagation(); removeClip(clip.id) }}
+        title="Eliminar clip"
       >
         ✕
       </button>
 
-      {/* Resize handle */}
+      {/* Resize handle — hidden on hover (delete button takes that edge) */}
       <div
-        className="absolute right-0 top-0 h-full w-2 cursor-ew-resize hover:bg-white/20"
+        className="absolute right-0 top-0 h-full w-2 cursor-ew-resize group-hover:opacity-0 hover:bg-white/20 z-20"
         onMouseDown={onResizeStart}
         onClick={(e) => e.stopPropagation()}
       />
