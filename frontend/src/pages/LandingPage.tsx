@@ -96,6 +96,31 @@ export function LandingPage() {
           <div className="absolute inset-0 rounded-2xl ring-0 group-hover:ring-1 ring-indigo-500/30 transition-all" />
         </Link>
 
+        {/* Avatar Story Creator */}
+        <Link
+          to="/avatar-story"
+          className="group relative flex flex-col items-start gap-4 p-6 rounded-2xl border border-gray-800 bg-gray-900 hover:border-purple-500 hover:bg-gray-800 transition-all duration-200 text-left shadow-lg hover:shadow-purple-900/20 hover:shadow-xl"
+        >
+          <div className="w-12 h-12 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-2xl group-hover:bg-purple-600/30 transition-colors">
+            🎭
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-1 group-hover:text-purple-300 transition-colors">
+              Avatar Story Creator
+            </h2>
+            <p className="text-sm text-gray-500 leading-relaxed">
+              Sube una foto, ingresa tu historia o canción y genera escenas con avatar + prompts para PixVerse.
+            </p>
+          </div>
+          <div className="mt-auto w-full flex items-center justify-between">
+            <span className="text-xs text-purple-500 font-medium uppercase tracking-wider">
+              Abrir
+            </span>
+            <span className="text-gray-600 group-hover:text-purple-400 transition-colors text-lg">→</span>
+          </div>
+          <div className="absolute inset-0 rounded-2xl ring-0 group-hover:ring-1 ring-purple-500/30 transition-all" />
+        </Link>
+
         {/* Biblioteca */}
         <Link
           to="/biblioteca"

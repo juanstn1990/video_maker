@@ -14,6 +14,8 @@ import { audioPreviewRouter } from './routes/audioPreview'
 import { ruletaRouter } from './routes/ruleta'
 import { bibliotecaRouter } from './routes/biblioteca'
 import { projectsRouter } from './routes/projects'
+import { avatarRouter } from './routes/avatar'
+import { nanobananaRouter } from './routes/nanobanana'
 import { initDb } from './db'
 
 const app = express()
@@ -36,6 +38,8 @@ app.use('/api', audioPreviewRouter)
 app.use('/api', ruletaRouter)
 app.use('/api', bibliotecaRouter)
 app.use('/api', projectsRouter)
+app.use('/api', avatarRouter)
+app.use('/api', nanobananaRouter)
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' })

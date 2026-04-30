@@ -4,6 +4,7 @@ import { LandingPage } from './pages/LandingPage'
 import { WatermarkPage } from './pages/WatermarkPage'
 import { RuletaPage } from './pages/RuletaPage'
 import { BibliotecaPage } from './pages/BibliotecaPage'
+import { AvatarStoryPage } from './pages/AvatarStoryPage'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="/watermark" element={<WatermarkPage />} />
         <Route path="/ruleta" element={<RuletaPage />} />
         <Route path="/biblioteca" element={<BibliotecaPage />} />
+        <Route path="/avatar-story" element={<AvatarStoryPage />} />
       </Routes>
     </BrowserRouter>
   )
