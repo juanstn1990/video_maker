@@ -8,7 +8,7 @@ interface Props {
 export const TitleSlide: React.FC<Props> = ({ clip }) => {
   const frame = useCurrentFrame()
   const dur = clip.durationFrames
-  const animDur = Math.min(20, Math.floor(dur * 0.3))
+  const animDur = Math.max(1, Math.min(20, Math.floor(dur * 0.3)))
 
   let opacity = 1
   let translateY = 0
@@ -120,7 +120,7 @@ export const TitleSlide: React.FC<Props> = ({ clip }) => {
 
   // Exit animation
   const exitStart = dur - animDur
-  if (frame > exitStart && clip.animationOut !== 'none') {
+  if (frame > exitStart && exitStart < dur && clip.animationOut !== 'none') {
     opacity = Math.min(opacity, interpolate(frame, [exitStart, dur], [1, 0], {
       extrapolateLeft: 'clamp', extrapolateRight: 'clamp',
     }))

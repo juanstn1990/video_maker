@@ -83,7 +83,7 @@ const KaraokeText: React.FC<{
 
 const SubtitleItem: React.FC<SubtitleItemProps> = ({ subtitle, config, fps, activeFrame }) => {
   const subtitleDurationFrames = Math.round((subtitle.endSeconds - subtitle.startSeconds) * fps)
-  const animDur = Math.min(12, Math.floor(subtitleDurationFrames * 0.25))
+  const animDur = Math.max(1, Math.min(12, Math.floor(subtitleDurationFrames * 0.25)))
 
   const currentSeconds = subtitle.startSeconds + (activeFrame / fps)
 

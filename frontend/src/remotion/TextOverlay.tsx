@@ -13,7 +13,8 @@ export const TextOverlayComponent: React.FC<Props> = ({ config }) => {
   }
 
   const localFrame = frame - config.startFrame
-  const { animationDuration: animDur, durationFrames } = config
+  const { animationDuration: rawAnimDur, durationFrames } = config
+  const animDur = Math.max(1, rawAnimDur)
   const exitStart = durationFrames - animDur
 
   let entryOpacity = 1
@@ -139,7 +140,7 @@ export const TextOverlayComponent: React.FC<Props> = ({ config }) => {
 
   // Exit opacity
   let exitOpacity = 1
-  if (localFrame > exitStart && config.animationOut !== 'none') {
+  if (localFrame > exitStart && exitStart < durationFrames && config.animationOut !== 'none') {
     exitOpacity = interpolate(localFrame, [exitStart, durationFrames], [1, 0], {
       extrapolateLeft: 'clamp', extrapolateRight: 'clamp',
     })
