@@ -26,7 +26,7 @@ function simplifyPrompt(prompt: string): string {
     .replace(/\s{2,}/g, ' ')
     .trim()
     .split(/[.,!]+/)[0]  // keep only first sentence as safe fallback
-    + '. Disney-style 2D animated cartoon character, cheerful scene, bright colors, family-friendly.'
+    + '. Personaje de dibujos animados animado en 2D estilo Disney, escena alegre, colores brillantes, apto para toda la familia.'
 }
 
 async function callGrokImagine(imageB64: string, mimeType: string, prompt: string, retries = 3): Promise<Buffer> {
@@ -93,12 +93,12 @@ async function callGrokImagine(imageB64: string, mimeType: string, prompt: strin
 }
 
 const STYLE_PREFIX =
-  'Disney-style 2D animated cartoon character, full body. ' +
-  'Classic hand-drawn animation look with fluid, appealing shapes. ' +
-  'Large expressive eyes with visible pupils, friendly warm smile, soft rounded facial features. ' +
-  'Elegant proportions, graceful posture, iconic Disney silhouette readability. ' +
-  'Vibrant but harmonious color palette, subtle cel-shading, clean outlines. ' +
-  'Polished professional finish reminiscent of modern Disney 2D animation. '
+  'Personaje de dibujos animados animado en 2D estilo Disney, cuerpo completo. ' +
+  'Aspecto clásico de animación dibujada a mano con formas fluidas y atractivas. ' +
+  'Ojos grandes y expresivos con pupilas visibles, sonrisa cálida y amigable, rasgos faciales suaves y redondeados. ' +
+  'Proporciones elegantes, postura grácil, silueta icónica de Disney fácilmente reconocible. ' +
+  'Paleta de colores vibrante pero armoniosa, sombreado sutil de celda, contornos limpios. ' +
+  'Acabado profesional pulido que recuerda a la animación 2D moderna de Disney. '
 
 export interface AvatarScene {
   id: string
@@ -135,7 +135,7 @@ avatarRouter.post('/avatar/analyze', upload.single('image'), async (req: Request
     const avatarBuffer = await callGrokImagine(
       photoB64,
       'image/png',
-      'Disney-style 2D animated cartoon avatar, full body, head to toe visible, square 1:1 format.',
+      'Avatar de dibujos animados animado en 2D estilo Disney, cuerpo completo, de la cabeza a los pies visible, formato cuadrado 1:1.',
     )
     const squareAvatar = await padToSquare(avatarBuffer)
     const avatarB64 = squareAvatar.toString('base64')
@@ -154,9 +154,9 @@ avatarRouter.post('/avatar/analyze', upload.single('image'), async (req: Request
             { type: 'image_url', image_url: { url: `data:image/png;base64,${avatarB64}`, detail: 'high' } },
             {
               type: 'text',
-              text: `Describe this Disney-style 2D animated cartoon character for use in AI image generation prompts.
-Include: gender, approximate age look, hair (color, style, accessories), eye color and shape, skin tone, clothing (colors, pattern, style), body proportions, distinctive Disney-like features such as large expressive eyes and elegant silhouette.
-Single paragraph in English, max 80 words. Start with "A Disney-style 2D animated cartoon character,". No commentary.`,
+              text: `Describe este personaje de dibujos animados animado en 2D estilo Disney para usarlo en prompts de generación de imágenes con IA.
+Incluye: género, edad aproximada, cabello (color, estilo, accesorios), color y forma de ojos, tono de piel, ropa (colores, patrón, estilo), proporciones corporales, rasgos distintivos tipo Disney como ojos grandes y expresivos y silueta elegante.
+Un solo párrafo en español, máximo 80 palabras. Empieza con "Un personaje de dibujos animados animado en 2D estilo Disney,". Sin comentarios adicionales.`,
             },
           ],
         },
@@ -203,36 +203,36 @@ avatarRouter.post('/avatar/scenes', async (req: Request, res: Response) => {
       messages: [
         {
           role: 'system',
-          content: `You are a creative director for a Disney-style 2D animated show — classic hand-drawn animation aesthetic, elegant proportions, large expressive eyes, warm friendly expressions, clean appealing silhouettes, vibrant harmonious colors.
+          content: `Eres un director creativo de un programa animado en 2D estilo Disney — estética clásica de animación dibujada a mano, proporciones elegantes, ojos grandes y expresivos, expresiones cálidas y amigables, siluetas limpias y atractivas, colores vibrantes y armoniosos.
 
-The main character (already illustrated in this style):
+El personaje principal (ya ilustrado en este estilo):
 ${avatarDescription}
 
-STRICT RULES for every scene:
-- The main character always appears.
-- Other human characters (papa, mama, abuela, etc.) are ONLY included if the story/song text explicitly names or refers to them. When included, list them in "detectedPersons".
-- Animals are ONLY included if the story/song text explicitly mentions them.
-- If the story implies people but does not name them, replace with inanimate props.
-- Never add background people, crowds or unnamed characters.
+REGLAS ESTRICTAS para cada escena:
+- El personaje principal siempre aparece.
+- Otros personajes humanos (papá, mamá, abuela, etc.) solo se incluyen SI el texto de la historia/canción los nombra o menciona explícitamente. Cuando se incluyan, listarlos en "detectedPersons".
+- Los animales solo se incluyen SI el texto de la historia/canción los menciona explícitamente.
+- Si la historia implica personas pero no las nombra, reemplazarlas por objetos inanimados.
+- Nunca agregar personas de fondo, multitudes o personajes sin nombre.
 
-Output ONLY valid JSON:
+Genera ÚNICAMENTE JSON válido:
 {
   "scenes": [
     {
       "number": 1,
-      "title": "Scene title in Spanish (max 8 words)",
-      "narrative": "2-3 sentences in Spanish describing what happens.",
+      "title": "Título de la escena en español (máx. 8 palabras)",
+      "narrative": "2-3 oraciones en español describiendo lo que ocurre.",
       "detectedPersons": ["papa", "mama"],
-      "scenePrompt": "Rich English prompt for Grok image model (1:1 square composition). Reference the main character as 'the character'. If detectedPersons is non-empty, reference each by role name — they appear as reference images. Include: (1) Character pose and facial expression conveying emotion, (2) Specific action happening at this moment, (3) Detailed environment — describe background layers (foreground props, mid-ground setting, background landscape/sky), (4) Lighting mood (golden hour, soft indoor lamp, bright midday, moonlight, etc.), (5) Color palette of the scene (warm, cool, pastel, vivid), (6) Specific props or objects relevant to the story beat, (7) Camera framing (wide establishing shot, medium shot, close-up). Include animals only if the story mentions them. Cinematic Disney 2D cartoon style. Max 120 words.",
-      "pixversePrompt": "PixVerse video prompt in English. [Subject: detailed character description + specific animated action with clear motion arc] [Environment: richly described cartoon scene — background details, lighting, atmosphere, time of day] [Camera: specific movement — slow push-in, gentle pan left/right, subtle tilt, orbit] [Mood: emotional tone of the scene] [Style: 2D animated cartoon, Disney hand-drawn aesthetic, flat cel-shading, bold black outlines, vibrant harmonious colors, 1:1 square format]. Under 110 words."
+      "scenePrompt": "Prompt rico en español para el modelo de imágenes Grok (composición cuadrada 1:1). Refiere al personaje principal como 'el personaje'. Si detectedPersons no está vacío, menciona cada uno por su nombre de rol — aparecen como imágenes de referencia. Incluye: (1) Pose del personaje y expresión facial que transmita emoción, (2) Acción específica que ocurre en este momento, (3) Entorno detallado — describe capas de fondo (objetos en primer plano, escenario en medio plano, paisaje/cielo de fondo), (4) Ambiente de iluminación (hora dorada, lámpara suave interior, mediodía brillante, luz de luna, etc.), (5) Paleta de colores de la escena (cálida, fría, pastel, vívida), (6) Objetos o utilería específicos relevantes para este momento de la historia, (7) Encuadre de cámara (plano general de establecimiento, plano medio, primer plano). Incluye animales solo si la historia los menciona. Estilo de dibujos animados 2D cinemático tipo Disney. Máx. 120 palabras.",
+      "pixversePrompt": "Prompt de video en español. [Sujeto: descripción detallada del personaje + acción animada específica con arco de movimiento claro] [Entorno: escena de dibujos animados ricamente descrita — detalles de fondo, iluminación, atmósfera, hora del día] [Cámara: movimiento específico — acercamiento lento, paneo suave izquierda/derecha, inclinación sutil, órbita] [Ambiente: tono emocional de la escena] [Estilo: dibujos animados 2D, estética dibujada a mano tipo Disney, sombreado plano de celda, contornos negros marcados, colores vibrantes y armoniosos, formato cuadrado 1:1]. Máximo 110 palabras."
     }
   ]
 }
-Note: detectedPersons must be an array of strings (lowercase role names like "papa", "mama", "abuela"). Use [] when no named people appear in the scene.`,
+Nota: detectedPersons debe ser un arreglo de strings (nombres de rol en minúscula como "papa", "mama", "abuela"). Usa [] cuando no aparezcan personas nombradas en la escena.`,
         },
         {
           role: 'user',
-          content: `Story/Song (Spanish):\n${storyText}\n\nCreate exactly ${count} scenes as a visual narrative. Respond with the JSON structure.`,
+          content: `Historia/Canción (español):\n${storyText}\n\nCrea exactamente ${count} escenas como una narrativa visual. Responde con la estructura JSON.`,
         },
       ],
     })
@@ -278,7 +278,7 @@ avatarRouter.post('/avatar/person-photo', upload.single('image'), async (req: Re
     const avatarBuffer = await callGrokImagine(
       photoB64,
       'image/png',
-      'Disney-style 2D animated cartoon character, full body, head to toe visible, square 1:1 format.',
+      'Personaje de dibujos animados animado en 2D estilo Disney, cuerpo completo, de la cabeza a los pies visible, formato cuadrado 1:1.',
     )
     const squareAvatar = await padToSquare(avatarBuffer)
     const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '_')
@@ -385,26 +385,26 @@ avatarRouter.post('/avatar/generate-image', async (req: Request, res: Response) 
     if (extraPaths.length > 0) {
       refBuffer = await composeAvatars(avatarRefPath, extraPaths)
       characterNote =
-        `The reference image is a side-by-side panel: LEFT is the main character, ` +
-        extraLabels.map((l, i) => `${i === 0 && extraLabels.length === 1 ? 'RIGHT' : `POSITION ${i + 2}`} is ${l}`).join(', ') +
-        `. All characters must appear in the scene. `
+        `La imagen de referencia es un panel lado a lado: a la IZQUIERDA está el personaje principal, ` +
+        extraLabels.map((l, i) => `${i === 0 && extraLabels.length === 1 ? 'a la DERECHA' : `en la POSICIÓN ${i + 2}`} está ${l}`).join(', ') +
+        `. Todos los personajes deben aparecer en la escena. `
     } else {
       refBuffer = fs.readFileSync(avatarRefPath)
       characterNote =
-        `The reference image shows the main character's design — faithfully replicate hair, colors, clothing, face and proportions. ` +
-        `Draw the FULL BODY of the character — head to toe — entirely visible with NO cropping. ` +
-        `The character is the clear focal point, dynamically posed and filling the center of the 1:1 square frame. ` +
-        `Use a full-body or 3/4 wide shot; never a close-up that cuts off limbs or feet. `
+        `La imagen de referencia muestra el diseño del personaje principal — replica fielmente el cabello, colores, ropa, rostro y proporciones. ` +
+        `Dibuja el CUERPO COMPLETO del personaje — de la cabeza a los pies — completamente visible SIN recortar. ` +
+        `El personaje es el punto focal claro, en una pose dinámica y ocupando el centro del encuadre cuadrado 1:1. ` +
+        `Usa un plano de cuerpo completo o un plano 3/4 amplio; nunca un primer plano que recorte extremidades o pies. `
     }
 
     const scenePromptFull =
-      `Disney-style 2D animated cartoon. ` +
-      `Faithfully replicate the exact character design from the reference image — same hair, colors, clothing, face and proportions. ` +
+      `Dibujos animados animados en 2D estilo Disney. ` +
+      `Replica fielmente el diseño exacto del personaje de la imagen de referencia — mismo cabello, colores, ropa, rostro y proporciones. ` +
       characterNote +
-      `Scene: ${scenePrompt} ` +
-      `Full bodies visible with expressive poses. Bold clean black outlines, vibrant harmonious flat colors with subtle cel-shading. ` +
-      `Rich layered background: detailed foreground props, mid-ground setting elements, painted background scenery. ` +
-      `Professional Disney 2D animation quality — polished, appealing, story-driven composition.`
+      `Escena: ${scenePrompt} ` +
+      `Cuerpos completos visibles con poses expresivas. Contornos negros limpios y marcados, colores planos vibrantes y armoniosos con sombreado sutil de celda. ` +
+      `Fondo con capas ricas: objetos detallados en primer plano, elementos de escenario en medio plano, paisaje pintado de fondo. ` +
+      `Calidad profesional de animación 2D Disney — composición pulida, atractiva y guiada por la narrativa.`
 
     const paddedRef = await padToSquare(refBuffer)
     const sceneBuffer = await callGrokImagine(

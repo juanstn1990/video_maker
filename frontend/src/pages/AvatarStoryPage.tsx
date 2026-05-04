@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 interface AvatarScene {
@@ -49,6 +49,12 @@ export function AvatarStoryPage() {
   const [scenes, setScenes] = useState<AvatarScene[]>([])
   const [personStates, setPersonStates] = useState<Record<string, PersonState>>({})
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Refs to always access latest state inside async handlers
+  const scenesRef = useRef(scenes)
+  const personStatesRef = useRef(personStates)
+  useEffect(() => { scenesRef.current = scenes }, [scenes])
+  useEffect(() => { personStatesRef.current = personStates }, [personStates])
 
   // All unique persons required across all scenes
   const requiredPersons = Array.from(
@@ -167,36 +173,45 @@ export function AvatarStoryPage() {
     return missing.length === 0
   }
 
-  const generateImage = async (scene: AvatarScene) => {
+  const generateImage = async (sceneId: string) => {
+    // Clear previous image so the user sees something is happening (and bust cache later)
     setScenes((prev) =>
-      prev.map((s) => (s.id === scene.id ? { ...s, generating: true, generateError: undefined } : s)),
+      prev.map((s) => (s.id === sceneId ? { ...s, generating: true, generateError: undefined, generatedImageUrl: undefined } : s)),
     )
     try {
-      const readyPersons = (scene.detectedPersons ?? []).filter(
-        (p) => personStates[p]?.avatarUrl,
+      // Always read the latest scene data from the ref (avoids stale closures)
+      const currentScene = scenesRef.current.find((s) => s.id === sceneId)
+      if (!currentScene) throw new Error('Escena no encontrada')
+
+      const readyPersons = (currentScene.detectedPersons ?? []).filter(
+        (p) => personStatesRef.current[p]?.avatarUrl,
       )
       const res = await fetch('/api/avatar/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           avatarDescription,
-          scenePrompt: scene.scenePrompt,
-          sceneId: scene.id,
+          scenePrompt: currentScene.scenePrompt,
+          sceneId: currentScene.id,
           photoId,
           extraPersonNames: readyPersons,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al generar imagen')
+      // Append cache-buster so the browser never shows a stale image
+      const rawUrl = data.imageUrl as string
+      const cacheBuster = `t=${Date.now()}`
+      const imageUrl = rawUrl.includes('?') ? `${rawUrl}&${cacheBuster}` : `${rawUrl}?${cacheBuster}`
       setScenes((prev) =>
         prev.map((s) =>
-          s.id === scene.id ? { ...s, generatedImageUrl: data.imageUrl, generating: false } : s,
+          s.id === sceneId ? { ...s, generatedImageUrl: imageUrl, generating: false } : s,
         ),
       )
     } catch (err: any) {
       setScenes((prev) =>
         prev.map((s) =>
-          s.id === scene.id ? { ...s, generating: false, generateError: err.message ?? 'Error' } : s,
+          s.id === sceneId ? { ...s, generating: false, generateError: err.message ?? 'Error' } : s,
         ),
       )
     }
@@ -205,33 +220,63 @@ export function AvatarStoryPage() {
   const generateAllImages = () => {
     scenes
       .filter((s) => !s.generatedImageUrl && !s.generating && sceneCanGenerate(s))
-      .forEach(generateImage)
+      .forEach((s) => generateImage(s.id))
   }
 
-  const generateVideo = async (scene: AvatarScene) => {
+  const generateVideo = async (sceneId: string) => {
     setScenes((prev) =>
-      prev.map((s) => (s.id === scene.id ? { ...s, generatingVideo: true, videoError: undefined } : s)),
+      prev.map((s) => (s.id === sceneId ? { ...s, generatingVideo: true, videoError: undefined, generatedVideoUrl: undefined } : s)),
     )
     try {
+      const currentScene = scenesRef.current.find((s) => s.id === sceneId)
+      if (!currentScene) throw new Error('Escena no encontrada')
+
       const res = await fetch('/api/avatar/generate-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pixversePrompt: scene.pixversePrompt, sceneId: scene.id }),
+        body: JSON.stringify({ pixversePrompt: currentScene.pixversePrompt, sceneId: currentScene.id }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Error al generar video')
+      const rawUrl = data.videoUrl as string
+      const cacheBuster = `t=${Date.now()}`
+      const videoUrl = rawUrl.includes('?') ? `${rawUrl}&${cacheBuster}` : `${rawUrl}?${cacheBuster}`
       setScenes((prev) =>
         prev.map((s) =>
-          s.id === scene.id ? { ...s, generatedVideoUrl: data.videoUrl, generatingVideo: false } : s,
+          s.id === sceneId ? { ...s, generatedVideoUrl: videoUrl, generatingVideo: false } : s,
         ),
       )
     } catch (err: any) {
       setScenes((prev) =>
         prev.map((s) =>
-          s.id === scene.id ? { ...s, generatingVideo: false, videoError: err.message ?? 'Error' } : s,
+          s.id === sceneId ? { ...s, generatingVideo: false, videoError: err.message ?? 'Error' } : s,
         ),
       )
     }
+  }
+
+  const updateScene = (id: string, updates: Partial<AvatarScene>) => {
+    setScenes((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)))
+  }
+
+  const deleteScene = (id: string) => {
+    setScenes((prev) => {
+      const filtered = prev.filter((s) => s.id !== id)
+      // Re-number after deletion
+      return filtered.map((s, i) => ({ ...s, number: i + 1 }))
+    })
+  }
+
+  const moveScene = (id: string, direction: -1 | 1) => {
+    setScenes((prev) => {
+      const idx = prev.findIndex((s) => s.id === id)
+      const newIdx = idx + direction
+      if (idx === -1 || newIdx < 0 || newIdx >= prev.length) return prev
+      const next = [...prev]
+      const [moved] = next.splice(idx, 1)
+      next.splice(newIdx, 0, moved)
+      return next.map((s, i) => ({ ...s, number: i + 1 }))
+    })
   }
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -513,16 +558,21 @@ export function AvatarStoryPage() {
             )}
 
             <div className="space-y-5">
-              {scenes.map((scene) => (
+              {scenes.map((scene, index) => (
                 <SceneCard
                   key={scene.id}
                   scene={scene}
+                  index={index}
+                  totalScenes={scenes.length}
                   personStates={personStates}
                   canGenerate={sceneCanGenerate(scene)}
                   copiedId={copiedId}
-                  onGenerateImage={() => generateImage(scene)}
-                  onGenerateVideo={() => generateVideo(scene)}
+                  onGenerateImage={() => generateImage(scene.id)}
+                  onGenerateVideo={() => generateVideo(scene.id)}
                   onCopy={copyToClipboard}
+                  onUpdate={updateScene}
+                  onDelete={deleteScene}
+                  onMove={moveScene}
                 />
               ))}
             </div>
@@ -619,23 +669,54 @@ function downloadFile(url: string, filename: string) {
 
 function SceneCard({
   scene,
+  index,
+  totalScenes,
   personStates,
   canGenerate,
   copiedId,
   onGenerateImage,
   onGenerateVideo,
   onCopy,
+  onUpdate,
+  onDelete,
+  onMove,
 }: {
   scene: AvatarScene
+  index: number
+  totalScenes: number
   personStates: Record<string, PersonState>
   canGenerate: boolean
   copiedId: string | null
   onGenerateImage: () => void
   onGenerateVideo: () => void
   onCopy: (text: string, id: string) => void
+  onUpdate: (id: string, updates: Partial<AvatarScene>) => void
+  onDelete: (id: string) => void
+  onMove: (id: string, direction: -1 | 1) => void
 }) {
   const [showScenePrompt, setShowScenePrompt] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(scene)
   const missingPersons = (scene.detectedPersons ?? []).filter((p) => !personStates[p]?.avatarUrl)
+
+  function startEdit() {
+    setDraft({ ...scene })
+    setIsEditing(true)
+  }
+
+  function saveEdit() {
+    onUpdate(scene.id, {
+      title: draft.title,
+      narrative: draft.narrative,
+      scenePrompt: draft.scenePrompt,
+      pixversePrompt: draft.pixversePrompt,
+    })
+    setIsEditing(false)
+  }
+
+  function cancelEdit() {
+    setIsEditing(false)
+  }
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
@@ -644,27 +725,124 @@ function SceneCard({
         <span className="w-7 h-7 rounded-lg bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-xs font-bold text-purple-300">
           {scene.number}
         </span>
-        <h3 className="font-semibold text-white">{scene.title}</h3>
-        {scene.detectedPersons?.length > 0 && (
-          <div className="ml-auto flex items-center gap-1">
-            {scene.detectedPersons.map((p) => (
-              <span
-                key={p}
-                className={`text-xs px-2 py-0.5 rounded-full border ${
-                  personStates[p]?.avatarUrl
-                    ? 'text-green-400 bg-green-900/20 border-green-700/40'
-                    : 'text-amber-400 bg-amber-900/20 border-amber-700/40'
-                }`}
-              >
-                {personStates[p]?.avatarUrl ? '✓' : '⏳'} {p}
-              </span>
-            ))}
-          </div>
+        {isEditing ? (
+          <input
+            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500"
+            value={draft.title}
+            onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+          />
+        ) : (
+          <h3 className="font-semibold text-white">{scene.title}</h3>
         )}
+
+        <div className="ml-auto flex items-center gap-1 flex-wrap justify-end">
+          {scene.detectedPersons?.length > 0 && !isEditing && (
+            <div className="flex items-center gap-1 mr-2">
+              {scene.detectedPersons.map((p) => (
+                <span
+                  key={p}
+                  className={`text-xs px-2 py-0.5 rounded-full border ${
+                    personStates[p]?.avatarUrl
+                      ? 'text-green-400 bg-green-900/20 border-green-700/40'
+                      : 'text-amber-400 bg-amber-900/20 border-amber-700/40'
+                  }`}
+                >
+                  {personStates[p]?.avatarUrl ? '✓' : '⏳'} {p}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {isEditing ? (
+            <>
+              <button
+                onClick={saveEdit}
+                className="text-xs bg-green-600 hover:bg-green-500 text-white rounded px-2 py-1 transition-colors"
+                title="Guardar cambios"
+              >
+                ✓ Guardar
+              </button>
+              <button
+                onClick={cancelEdit}
+                className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded px-2 py-1 transition-colors"
+                title="Cancelar"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={startEdit}
+                className="text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 rounded px-2 py-1 transition-colors"
+                title="Editar escena"
+              >
+                ✏️ Editar
+              </button>
+              <button
+                onClick={() => onMove(scene.id, -1)}
+                disabled={index === 0}
+                className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded px-2 py-1 transition-colors disabled:opacity-30"
+                title="Mover arriba"
+              >
+                ↑
+              </button>
+              <button
+                onClick={() => onMove(scene.id, 1)}
+                disabled={index === totalScenes - 1}
+                className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded px-2 py-1 transition-colors disabled:opacity-30"
+                title="Mover abajo"
+              >
+                ↓
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm('¿Eliminar esta escena?')) onDelete(scene.id)
+                }}
+                className="text-xs bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/40 rounded px-2 py-1 transition-colors"
+                title="Eliminar escena"
+              >
+                🗑
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="p-5 space-y-4">
-        <p className="text-gray-400 text-sm leading-relaxed">{scene.narrative}</p>
+        {isEditing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Narrativa</label>
+              <textarea
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-purple-500 resize-none"
+                rows={3}
+                value={draft.narrative}
+                onChange={(e) => setDraft((d) => ({ ...d, narrative: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Prompt de imagen (Grok)</label>
+              <textarea
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-purple-500 resize-none font-mono"
+                rows={4}
+                value={draft.scenePrompt}
+                onChange={(e) => setDraft((d) => ({ ...d, scenePrompt: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Prompt de video (PixVerse / xAI)</label>
+              <textarea
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-purple-500 resize-none font-mono"
+                rows={4}
+                value={draft.pixversePrompt}
+                onChange={(e) => setDraft((d) => ({ ...d, pixversePrompt: e.target.value }))}
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-400 text-sm leading-relaxed">{scene.narrative}</p>
+        )}
 
         {missingPersons.length > 0 && (
           <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg px-3 py-2 text-amber-300 text-xs">
