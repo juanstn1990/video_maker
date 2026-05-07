@@ -5,6 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+import { isRecordStringString } from './misc.js';
 /**
  * Image data with additional metadata.
  *
@@ -137,8 +138,10 @@ export const validateMetadataTags = (tags) => {
                 && typeof value !== 'string'
                 && !(value instanceof Uint8Array)
                 && !(value instanceof RichImageData)
-                && !(value instanceof AttachedFile)) {
-                throw new TypeError('Each value in tags.raw must be a string, Uint8Array, RichImageData, AttachedFile, or null.');
+                && !(value instanceof AttachedFile)
+                && !isRecordStringString(value)) {
+                throw new TypeError('Each value in tags.raw must be a string, Uint8Array, RichImageData, AttachedFile, '
+                    + 'Record<string, string>, or null.');
             }
         }
     }
@@ -162,6 +165,7 @@ export const metadataTagsAreEmpty = (tags) => {
 };
 export const DEFAULT_TRACK_DISPOSITION = {
     default: true,
+    primary: true,
     forced: false,
     original: false,
     commentary: false,
@@ -174,6 +178,9 @@ export const validateTrackDisposition = (disposition) => {
     }
     if (disposition.default !== undefined && typeof disposition.default !== 'boolean') {
         throw new TypeError('disposition.default must be a boolean.');
+    }
+    if (disposition.primary !== undefined && typeof disposition.primary !== 'boolean') {
+        throw new TypeError('disposition.primary must be a boolean.');
     }
     if (disposition.forced !== undefined && typeof disposition.forced !== 'boolean') {
         throw new TypeError('disposition.forced must be a boolean.');

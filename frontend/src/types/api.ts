@@ -17,7 +17,7 @@ export interface UploadedMedia {
   mediaId: string
   filename: string
   url: string
-  type: 'image' | 'audio'
+  type: 'image' | 'audio' | 'video'
   durationSeconds?: number
   width?: number
   height?: number
@@ -32,7 +32,7 @@ export interface UploadResponse {
   mediaId: string
   filename: string
   url: string
-  type: 'image' | 'audio'
+  type: 'image' | 'audio' | 'video'
   width?: number
   height?: number
   thumbnailUrl?: string

@@ -7,8 +7,10 @@
  */
 import { Demuxer } from '../demuxer.js';
 import { Input } from '../input.js';
-import { InputAudioTrack } from '../input-track.js';
+import { InputAudioTrackBacking } from '../input-track.js';
+import { PacketRetrievalOptions } from '../media-sink.js';
 import { AsyncMutex } from '../misc.js';
+import { EncodedPacket } from '../packet.js';
 import { FileSlice, Reader } from '../reader.js';
 import { MetadataTags } from '../metadata.js';
 type FlacAudioInfo = {
@@ -38,7 +40,7 @@ export declare class FlacDemuxer extends Demuxer {
     reader: Reader;
     loadedSamples: Sample[];
     metadataPromise: Promise<void> | null;
-    track: InputAudioTrack | null;
+    trackBacking: FlacAudioTrackBacking | null;
     metadataTags: MetadataTags;
     audioInfo: FlacAudioInfo | null;
     lastLoadedPos: number | null;
@@ -46,9 +48,8 @@ export declare class FlacDemuxer extends Demuxer {
     readingMutex: AsyncMutex;
     lastSampleLoaded: boolean;
     constructor(input: Input);
-    computeDuration(): Promise<number>;
     getMetadataTags(): Promise<MetadataTags>;
-    getTracks(): Promise<InputAudioTrack[]>;
+    getTrackBackings(): Promise<FlacAudioTrackBacking[]>;
     getMimeType(): Promise<string>;
     readMetadata(): Promise<void>;
     readNextFlacFrame({ startPos, isFirstPacket, }: {
@@ -64,6 +65,42 @@ export declare class FlacDemuxer extends Demuxer {
         sampleRate: number;
     } | null;
     advanceReader(): Promise<void>;
+}
+declare class FlacAudioTrackBacking implements InputAudioTrackBacking {
+    demuxer: FlacDemuxer;
+    constructor(demuxer: FlacDemuxer);
+    getType(): "audio";
+    getId(): number;
+    getNumber(): number;
+    getCodec(): "flac";
+    getInternalCodecId(): string | number | Uint8Array | null;
+    getNumberOfChannels(): number;
+    getSampleRate(): number;
+    getName(): string | null;
+    getLanguageCode(): string;
+    getTimeResolution(): number;
+    isRelativeToUnixEpoch(): boolean;
+    getPairingMask(): bigint;
+    getBitrate(): null;
+    getAverageBitrate(): null;
+    getDurationFromMetadata(): Promise<number | null>;
+    getLiveRefreshInterval(): Promise<null>;
+    getDisposition(): {
+        default: boolean;
+        primary: boolean;
+        forced: boolean;
+        original: boolean;
+        commentary: boolean;
+        hearingImpaired: boolean;
+        visuallyImpaired: boolean;
+    };
+    getDecoderConfig(): Promise<AudioDecoderConfig | null>;
+    getPacket(timestamp: number, options: PacketRetrievalOptions): Promise<EncodedPacket | null>;
+    getNextPacket(packet: EncodedPacket, options: PacketRetrievalOptions): Promise<EncodedPacket | null>;
+    getKeyPacket(timestamp: number, options: PacketRetrievalOptions): Promise<EncodedPacket | null>;
+    getNextKeyPacket(packet: EncodedPacket, options: PacketRetrievalOptions): Promise<EncodedPacket | null>;
+    getPacketAtIndex(sampleIndex: number, options: PacketRetrievalOptions): Promise<EncodedPacket | null>;
+    getFirstPacket(options: PacketRetrievalOptions): Promise<EncodedPacket | null>;
 }
 export {};
 //# sourceMappingURL=flac-demuxer.d.ts.map

@@ -6,7 +6,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 import { Demuxer } from '../demuxer.js';
-import { InputAudioTrack } from '../input-track.js';
 import { DEFAULT_TRACK_DISPOSITION } from '../metadata.js';
 import { assert, UNDETERMINED_LANGUAGE } from '../misc.js';
 import { EncodedPacket, PLACEHOLDER_DATA } from '../packet.js';
@@ -27,7 +26,7 @@ export class WaveDemuxer extends Demuxer {
         this.dataStart = -1;
         this.dataSize = -1;
         this.audioInfo = null;
-        this.tracks = [];
+        this.trackBackings = [];
         this.lastKnownPacketIndex = 0;
         this.metadataTags = {};
         this.reader = input._reader;
@@ -103,7 +102,7 @@ export class WaveDemuxer extends Demuxer {
             }
             const blockSize = this.audioInfo.blockSizeInBytes;
             this.dataSize = Math.floor(this.dataSize / blockSize) * blockSize;
-            this.tracks.push(new InputAudioTrack(this.input, new WaveAudioTrackBacking(this)));
+            this.trackBackings.push(new WaveAudioTrackBacking(this));
         })();
     }
     async parseFmtChunk(startPos, size, littleEndian) {
@@ -306,15 +305,9 @@ export class WaveDemuxer extends Demuxer {
     async getMimeType() {
         return 'audio/wav';
     }
-    async computeDuration() {
+    async getTrackBackings() {
         await this.readMetadata();
-        const track = this.tracks[0];
-        assert(track);
-        return track.computeDuration();
-    }
-    async getTracks() {
-        await this.readMetadata();
-        return this.tracks;
+        return this.trackBackings;
     }
     async getMetadataTags() {
         await this.readMetadata();
@@ -325,6 +318,9 @@ const PACKET_SIZE_IN_FRAMES = 2048;
 class WaveAudioTrackBacking {
     constructor(demuxer) {
         this.demuxer = demuxer;
+    }
+    getType() {
+        return 'audio';
     }
     getId() {
         return 1;
@@ -351,10 +347,6 @@ class WaveAudioTrackBacking {
             sampleRate: this.demuxer.audioInfo.sampleRate,
         };
     }
-    async computeDuration() {
-        const lastPacket = await this.getPacket(Infinity, { metadataOnly: true });
-        return (lastPacket?.timestamp ?? 0) + (lastPacket?.duration ?? 0);
-    }
     getNumberOfChannels() {
         assert(this.demuxer.audioInfo);
         return this.demuxer.audioInfo.numberOfChannels;
@@ -367,6 +359,25 @@ class WaveAudioTrackBacking {
         assert(this.demuxer.audioInfo);
         return this.demuxer.audioInfo.sampleRate;
     }
+    isRelativeToUnixEpoch() {
+        return false;
+    }
+    getPairingMask() {
+        return 1n;
+    }
+    getBitrate() {
+        return null;
+    }
+    getAverageBitrate() {
+        return null;
+    }
+    async getDurationFromMetadata() {
+        assert(this.demuxer.dataSize !== -1);
+        return this.demuxer.dataSize / this.demuxer.audioInfo.blockSizeInBytes / this.demuxer.audioInfo.sampleRate;
+    }
+    async getLiveRefreshInterval() {
+        return null;
+    }
     getName() {
         return null;
     }
@@ -377,9 +388,6 @@ class WaveAudioTrackBacking {
         return {
             ...DEFAULT_TRACK_DISPOSITION,
         };
-    }
-    async getFirstTimestamp() {
-        return 0;
     }
     async getPacketAtIndex(packetIndex, options) {
         assert(packetIndex >= 0);

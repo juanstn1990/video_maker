@@ -6,7 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') })
 import express from 'express'
 import cors from 'cors'
 import { uploadRouter, UPLOADS_DIR } from './routes/upload'
-import { renderRouter } from './routes/render'
+import { renderRouter, getBundle } from './routes/render'
 import { jobsRouter } from './routes/jobs'
 import { transcribeRouter } from './routes/transcribe'
 import { watermarkRouter } from './routes/watermark'
@@ -52,6 +52,10 @@ initDb()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Backend corriendo en http://localhost:${PORT}`)
+      // Pre-warm Remotion bundle so first render starts immediately
+      getBundle()
+        .then(() => console.log('Remotion bundle listo'))
+        .catch((err) => console.error('Error pre-calentando bundle:', err))
     })
   })
   .catch((err) => {

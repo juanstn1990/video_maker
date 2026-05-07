@@ -6,6 +6,7 @@ import type {
   ClipConfig,
   ImageClipConfig,
   TitleClipConfig,
+  VideoClipConfig,
   TextOverlay,
   AudioTrackConfig,
   SubtitleConfig,
@@ -33,6 +34,7 @@ interface EditorStore {
   // Clip mutations
   addImageClip: (mediaId: string, mediaUrl: string) => void
   addImageClips: (items: Array<{ mediaId: string; mediaUrl: string }>) => void
+  addVideoClip: (mediaId: string, mediaUrl: string, durationSeconds: number) => void
   addTitleClip: () => void
   removeClip: (clipId: string) => void
   reorderClips: (fromIndex: number, toIndex: number) => void
@@ -115,6 +117,26 @@ export const useEditorStore = create<EditorStore>()(
           cropZoom: 1,
           cropX: 0,
           cropY: 0,
+          fitMode: 'cover',
+        }
+        state.config.clips.push(clip)
+        state.config.totalFrames = computeTotalFrames(state.config.clips)
+      }),
+
+    addVideoClip: (mediaId, mediaUrl, durationSeconds) =>
+      set((state) => {
+        const fps = state.config.fps
+        const clip: VideoClipConfig = {
+          id: uid(),
+          type: 'video',
+          mediaId,
+          mediaUrl,
+          durationSeconds,
+          durationFrames: Math.max(15, Math.round(durationSeconds * fps)),
+          transitionIn: { ...DEFAULT_TRANSITION },
+          textOverlays: [],
+          volume: 1,
+          startFromSeconds: 0,
           fitMode: 'cover',
         }
         state.config.clips.push(clip)

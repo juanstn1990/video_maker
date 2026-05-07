@@ -8,7 +8,6 @@
 import { OPUS_SAMPLE_RATE } from '../codec.js';
 import { parseModesFromVorbisSetupPacket, parseOpusIdentificationHeader, readVorbisComments } from '../codec-data.js';
 import { Demuxer } from '../demuxer.js';
-import { InputAudioTrack } from '../input-track.js';
 import { DEFAULT_TRACK_DISPOSITION } from '../metadata.js';
 import { assert, AsyncMutex, binarySearchLessOrEqual, findLast, last, roundIfAlmostInteger, toDataView, UNDETERMINED_LANGUAGE, } from '../misc.js';
 import { EncodedPacket, PLACEHOLDER_DATA } from '../packet.js';
@@ -20,7 +19,7 @@ export class OggDemuxer extends Demuxer {
         super(input);
         this.metadataPromise = null;
         this.bitstreams = [];
-        this.tracks = [];
+        this.trackBackings = [];
         this.metadataTags = {};
         this.reader = input._reader;
     }
@@ -91,7 +90,7 @@ export class OggDemuxer extends Demuxer {
                     await this.readOpusMetadata(firstPacket, bitstream);
                 }
                 if (bitstream.codecInfo.codec !== null) {
-                    this.tracks.push(new InputAudioTrack(this.input, new OggAudioTrackBacking(bitstream, this)));
+                    this.trackBackings.push(new OggAudioTrackBacking(bitstream, this));
                 }
             }
         })();
@@ -276,19 +275,14 @@ export class OggDemuxer extends Demuxer {
     }
     async getMimeType() {
         await this.readMetadata();
-        const codecStrings = await Promise.all(this.tracks.map(x => x.getCodecParameterString()));
+        const codecStrings = await Promise.all(this.trackBackings.map(x => x.getDecoderConfig().then(c => c?.codec ?? null)));
         return buildOggMimeType({
             codecStrings: codecStrings.filter(Boolean),
         });
     }
-    async getTracks() {
+    async getTrackBackings() {
         await this.readMetadata();
-        return this.tracks;
-    }
-    async computeDuration() {
-        const tracks = await this.getTracks();
-        const trackDurations = await Promise.all(tracks.map(x => x.computeDuration()));
-        return Math.max(0, ...trackDurations);
+        return this.trackBackings;
     }
     async getMetadataTags() {
         await this.readMetadata();
@@ -307,12 +301,15 @@ class OggAudioTrackBacking {
             ? OPUS_SAMPLE_RATE
             : bitstream.sampleRate;
     }
+    getType() {
+        return 'audio';
+    }
     getId() {
         return this.bitstream.serialNumber;
     }
     getNumber() {
         // All Ogg tracks are audio, so the track's index + 1 is its number
-        const index = this.demuxer.tracks.findIndex(t => t._backing.bitstream === this.bitstream);
+        const index = this.demuxer.trackBackings.findIndex(x => x.bitstream === this.bitstream);
         assert(index !== -1);
         return index + 1;
     }
@@ -324,6 +321,24 @@ class OggAudioTrackBacking {
     }
     getTimeResolution() {
         return this.bitstream.sampleRate;
+    }
+    isRelativeToUnixEpoch() {
+        return false;
+    }
+    getPairingMask() {
+        return 1n;
+    }
+    getBitrate() {
+        return null;
+    }
+    getAverageBitrate() {
+        return null;
+    }
+    async getDurationFromMetadata() {
+        return null; // Not stored anywhere
+    }
+    async getLiveRefreshInterval() {
+        return null;
     }
     getCodec() {
         return this.bitstream.codecInfo.codec;
@@ -349,14 +364,8 @@ class OggAudioTrackBacking {
     getDisposition() {
         return {
             ...DEFAULT_TRACK_DISPOSITION,
+            primary: false,
         };
-    }
-    async getFirstTimestamp() {
-        return 0;
-    }
-    async computeDuration() {
-        const lastPacket = await this.getPacket(Infinity, { metadataOnly: true });
-        return (lastPacket?.timestamp ?? 0) + (lastPacket?.duration ?? 0);
     }
     granulePositionToTimestampInSamples(granulePosition) {
         if (this.bitstream.codecInfo.codec === 'opus') {

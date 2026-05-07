@@ -5,6 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+import type { PsshBox } from './isobmff/isobmff-misc.js';
+import { MaybePromise } from './misc.js';
 /**
  * Base class representing an input media file format.
  * @group Input formats
@@ -18,6 +20,10 @@ export declare abstract class InputFormat {
 }
 /**
  * Format representing files compatible with the ISO base media file format (ISOBMFF), like MP4 or MOV files.
+ *
+ * This format can make use of {@link InputOptions.initInput}. When the file contents are fragmented but no track
+ * initialization info is provided (no `moov` atom), then it must be provided via `initInput`.
+ *
  * @group Input formats
  * @public
  */
@@ -134,12 +140,28 @@ export declare class AdtsInputFormat extends InputFormat {
 /**
  * MPEG Transport Stream (MPEG-TS) file format.
  *
+ * This format can make use of {@link InputOptions.initInput} to initialize track information even when no
+ * initialization information is provided for the track, for example because it has no key frames. In this case, tracks
+ * are matched to each other based on their PID.
+ *
  * Do not instantiate this class; use the {@link MPEG_TS} singleton instead.
  *
  * @group Input formats
  * @public
  */
 export declare class MpegTsInputFormat extends InputFormat {
+    get name(): string;
+    get mimeType(): string;
+}
+/**
+ * Media described using the HTTP Live Streaming (HLS) protocol, with playlists in the M3U8 format.
+ *
+ * Do not instantiate this class; use the {@link HLS} singleton instead.
+ *
+ * @group Input formats
+ * @public
+ */
+export declare class HlsInputFormat extends InputFormat {
     get name(): string;
     get mimeType(): string;
 }
@@ -204,10 +226,55 @@ export declare const FLAC: FlacInputFormat;
  */
 export declare const MPEG_TS: MpegTsInputFormat;
 /**
+ * HLS input format singleton.
+ * @group Input formats
+ * @public
+ */
+export declare const HLS: HlsInputFormat;
+/**
  * List of all input format singletons. If you don't need to support all input formats, you should specify the
  * formats individually for better tree shaking.
  * @group Input formats
  * @public
  */
 export declare const ALL_FORMATS: InputFormat[];
+/**
+ * List of input formats required for playback of typical HLS manifests. Includes HLS itself as well as the typical
+ * segment formats: MPEG Transport Stream (.ts), MP4 (CMAF), ADTS (.aac) and MP3.
+ * @group Input formats
+ * @public
+ */
+export declare const HLS_FORMATS: InputFormat[];
+/**
+ * Additional per-format configuration.
+ * @group Input formats
+ * @public
+ */
+export type InputFormatOptions = {
+    /** ISOBMFF-specific configuration. */
+    isobmff?: IsobmffInputFormatOptions;
+};
+/**
+ * Additional ISOBMFF input configuration.
+ * @group Input formats
+ * @public
+ */
+export type IsobmffInputFormatOptions = {
+    /**
+     * A callback that gets invoked for each key ID required for sample content decryption. The key ID is provided as a
+     * 32-character lowercase hexadecimal string.
+     *
+     * Must return or resolve to a 32-character hexadecimal string or a 16-byte `Uint8Array`.
+     */
+    resolveKeyId?: (options: {
+        /** The key ID that is to be resolved to a key. This is a 32-character lowercase hexadecimal string. */
+        keyId: string;
+        /**
+         * Protection System Specific Header (pssh) boxes that apply to this key ID. Can be used to obtain a
+         * description key from a DRM license server.
+         */
+        psshBoxes: PsshBox[];
+    }) => MaybePromise<Uint8Array | string>;
+};
+export declare const validateInputFormatOptions: (options: InputFormatOptions, prefix: string) => void;
 //# sourceMappingURL=input-format.d.ts.map

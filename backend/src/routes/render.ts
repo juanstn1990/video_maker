@@ -24,7 +24,7 @@ let bundleCache: string | null = null
 // Track the entry point mtime to auto-invalidate the bundle when source changes
 let bundleMtime = 0
 
-async function getBundle(): Promise<string> {
+export async function getBundle(): Promise<string> {
   const entryPoint = path.resolve(__dirname, '../../../frontend/src/remotion/Root.tsx')
   // Invalidate cache if the remotion source directory has changed
   const srcDir = path.resolve(__dirname, '../../../frontend/src/remotion')
@@ -150,11 +150,12 @@ async function runRender(jobId: string, config: VideoConfig, fastMode: boolean) 
       codec: 'h264',
       outputLocation: outputFile,
       inputProps: { config: renderConfig },
-      concurrency: Math.max(4, cpuCount - 1),
+      concurrency: cpuCount,
       imageFormat: 'jpeg',
       jpegQuality: fastMode ? 70 : 85,
-      crf: fastMode ? 28 : 18,
+      crf: fastMode ? 28 : 20,
       scale: fastMode ? 0.5 : 1,
+      x264Preset: fastMode ? 'ultrafast' : 'veryfast',
       onProgress: ({ progress }) => {
         const j = jobs.get(jobId)!
         if (j.cancelled) return

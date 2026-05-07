@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-import { computeMp3FrameSize, getXingOffset, KILOBIT_RATES, XING, } from '../../shared/mp3-misc.js';
+import { computeMp3FrameSize, getXingOffset, KILOBIT_RATES, XING, XingFlags, } from '../../shared/mp3-misc.js';
 export class Mp3Writer {
     constructor(writer) {
         this.writer = writer;
@@ -59,13 +59,13 @@ export class Mp3Writer {
         this.writeU32(XING);
         let flags = 0;
         if (data.frameCount !== null) {
-            flags |= 1;
+            flags |= XingFlags.FrameCount;
         }
         if (data.fileSize !== null) {
-            flags |= 2;
+            flags |= XingFlags.FileSize;
         }
         if (data.toc !== null) {
-            flags |= 4;
+            flags |= XingFlags.Toc;
         }
         this.writeU32(flags);
         this.writeU32(data.frameCount ?? 0);

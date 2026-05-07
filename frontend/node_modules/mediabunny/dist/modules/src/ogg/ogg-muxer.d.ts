@@ -6,7 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 import { Muxer } from '../muxer.js';
-import { Output, OutputAudioTrack } from '../output.js';
+import { Output, OutputAudioTrack, OutputTrack } from '../output.js';
 import { OggOutputFormat } from '../output-format.js';
 import { EncodedPacket } from '../packet.js';
 import { OggCodecInfo } from './ogg-misc.js';
@@ -25,6 +25,7 @@ type OggTrackData = {
     currentPageSize: number;
     currentPageStartsWithFreshPacket: boolean;
     currentPageStartTimestampInSamples: number;
+    closed: boolean;
 };
 type Packet = {
     data: Uint8Array;
@@ -52,7 +53,7 @@ export declare class OggMuxer extends Muxer {
     interleavePages(isFinalCall?: boolean): Promise<void>;
     writePacket(trackData: OggTrackData, packet: Packet, isFinalPacket: boolean): void;
     writePage(trackData: OggTrackData, isEos: boolean): void;
-    onTrackClose(): Promise<void>;
+    onTrackClose(track: OutputTrack): Promise<void>;
     finalize(): Promise<void>;
 }
 export {};

@@ -98,7 +98,7 @@ export interface SubtitleConfig {
 }
 
 // ─── Clips ──────────────────────────────────────────────────────────────────
-export type ClipType = 'image' | 'title'
+export type ClipType = 'image' | 'title' | 'video'
 
 interface BaseClip {
   id: string
@@ -140,7 +140,17 @@ export interface TitleClipConfig extends BaseClip {
   animationOut: TextAnimation
 }
 
-export type ClipConfig = ImageClipConfig | TitleClipConfig
+export interface VideoClipConfig extends BaseClip {
+  type: 'video'
+  mediaId: string
+  mediaUrl: string
+  durationSeconds: number  // original video duration for reference
+  volume: number           // 0..1 — video's own audio
+  startFromSeconds: number // trim start point
+  fitMode: ImageFitMode
+}
+
+export type ClipConfig = ImageClipConfig | TitleClipConfig | VideoClipConfig
 
 // ─── Audio ──────────────────────────────────────────────────────────────────
 export interface AudioTrackConfig {

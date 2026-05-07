@@ -5,6 +5,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
+import { canDecodeAudioMemo, canDecodeVideoMemo } from './decode.js';
+import { canEncodeAudioMemo, canEncodeVideoMemo } from './encode.js';
 /**
  * Base class for custom video decoders. To add your own custom video decoder, extend this class, implement the
  * abstract methods and static `supports` method, and register the decoder using {@link registerDecoder}.
@@ -75,6 +77,7 @@ export const registerDecoder = (decoder) => {
             return;
         }
         customVideoDecoders.push(casted);
+        canDecodeVideoMemo.clear();
     }
     else if (decoder.prototype instanceof CustomAudioDecoder) {
         const casted = decoder;
@@ -83,6 +86,7 @@ export const registerDecoder = (decoder) => {
             return;
         }
         customAudioDecoders.push(casted);
+        canDecodeAudioMemo.clear();
     }
     else {
         throw new TypeError('Decoder must be a CustomVideoDecoder or CustomAudioDecoder.');
@@ -102,6 +106,7 @@ export const registerEncoder = (encoder) => {
             return;
         }
         customVideoEncoders.push(casted);
+        canEncodeVideoMemo.clear();
     }
     else if (encoder.prototype instanceof CustomAudioEncoder) {
         const casted = encoder;
@@ -110,6 +115,7 @@ export const registerEncoder = (encoder) => {
             return;
         }
         customAudioEncoders.push(casted);
+        canEncodeAudioMemo.clear();
     }
     else {
         throw new TypeError('Encoder must be a CustomVideoEncoder or CustomAudioEncoder.');

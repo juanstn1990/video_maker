@@ -3,8 +3,12 @@ import multer from 'multer'
 import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import { v4 as uuidv4 } from 'uuid'
 import type { UploadResponse } from '../types/api'
+
+const execFileAsync = promisify(execFile)
 
 export const UPLOADS_DIR = '/tmp/vm_uploads'
 fs.mkdirSync(UPLOADS_DIR, { recursive: true })
@@ -17,7 +21,32 @@ const storage = multer.diskStorage({
   },
 })
 
-const upload = multer({ storage, limits: { fileSize: 200 * 1024 * 1024 } })
+const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 } })
+
+async function getVideoDuration(filePath: string): Promise<number> {
+  try {
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      filePath,
+    ])
+    return parseFloat(stdout.trim()) || 0
+  } catch {
+    return 0
+  }
+}
+
+async function extractVideoThumbnail(videoPath: string, thumbPath: string): Promise<void> {
+  await execFileAsync('ffmpeg', [
+    '-ss', '1',
+    '-i', videoPath,
+    '-vframes', '1',
+    '-vf', 'scale=200:-1',
+    '-y',
+    thumbPath,
+  ])
+}
 
 export const uploadRouter = Router()
 
@@ -34,6 +63,8 @@ uploadRouter.post('/upload', upload.single('file'), async (req: Request, res: Re
   const ext = path.extname(file.originalname).toLowerCase()
   const AUDIO_EXTENSIONS = new Set(['.mp3', '.mp2', '.mpeg', '.mpg', '.m4a', '.ogg', '.wav', '.flac', '.aac', '.wma', '.opus'])
   const isAudio = file.mimetype.startsWith('audio/') || AUDIO_EXTENSIONS.has(ext)
+  const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.avi', '.mkv', '.m4v', '.3gp'])
+  const isVideo = file.mimetype.startsWith('video/') || VIDEO_EXTENSIONS.has(ext)
 
   try {
     if (isImage) {
@@ -77,6 +108,28 @@ uploadRouter.post('/upload', upload.single('file'), async (req: Request, res: Re
         filename: file.originalname,
         url: fileUrl,
         type: 'audio',
+      }
+      res.json(response)
+    } else if (isVideo) {
+      const durationSeconds = await getVideoDuration(file.path)
+
+      let thumbnailUrl: string | undefined
+      try {
+        const thumbFilename = `${mediaId}_thumb.jpg`
+        const thumbPath = path.join(UPLOADS_DIR, thumbFilename)
+        await extractVideoThumbnail(file.path, thumbPath)
+        thumbnailUrl = `/uploads/${thumbFilename}`
+      } catch {
+        // thumbnail extraction is best-effort
+      }
+
+      const response: UploadResponse = {
+        mediaId,
+        filename: file.originalname,
+        url: fileUrl,
+        type: 'video',
+        durationSeconds,
+        thumbnailUrl,
       }
       res.json(response)
     } else {

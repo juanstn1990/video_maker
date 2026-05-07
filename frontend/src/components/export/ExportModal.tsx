@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useEditorStore } from '../../store/useEditorStore'
 import { Button } from '../ui/Button'
+import { exportVideo, downloadBuffer } from '../../renderer/exporter'
+import type { ExportQuality, ExportProgress } from '../../renderer/exporter'
 
 type Phase = 'idle' | 'rendering' | 'done' | 'error'
 
@@ -9,9 +11,8 @@ export function ExportModal() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState('')
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [fastMode, setFastMode] = useState(false)
-  const esRef = useRef<EventSource | null>(null)
+  const [quality, setQuality] = useState<ExportQuality>('high')
+  const abortRef = useRef<AbortController | null>(null)
   const { config, savedProjectId, setSavedProjectId } = useEditorStore()
 
   async function autoSave() {
@@ -33,17 +34,16 @@ export function ExportModal() {
         setSavedProjectId(data.project.id)
       }
     } catch {
-      // auto-save failure is non-blocking
+      // non-blocking
     }
   }
 
   function close() {
-    if (phase === 'rendering') return  // can't close while rendering
+    if (phase === 'rendering') return
     setOpen(false)
     setPhase('idle')
     setProgress(0)
     setMessage('')
-    setJobId(null)
   }
 
   async function startRender() {
@@ -51,64 +51,38 @@ export function ExportModal() {
     setProgress(0)
     setMessage('Guardando proyecto...')
     await autoSave()
-    setMessage('Enviando configuración...')
+
+    const controller = new AbortController()
+    abortRef.current = controller
 
     try {
-      const res = await fetch('/api/render', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config, fastMode }),
-      })
-      if (!res.ok) throw new Error('Error al iniciar el render')
-      const { jobId } = await res.json()
-      setJobId(jobId)
+      const buffer = await exportVideo(
+        config,
+        quality,
+        (p: ExportProgress) => {
+          setProgress(Math.round(p.progress * 100))
+          setMessage(p.message)
+        },
+        controller.signal,
+      )
 
-      // Listen for SSE progress
-      const es = new EventSource(`/api/progress/${jobId}`)
-      esRef.current = es
-
-      es.onmessage = (e) => {
-        const data = JSON.parse(e.data)
-        setProgress(data.progress ?? 0)
-        setMessage(data.message ?? '')
-        if (data.status === 'completed') {
-          setPhase('done')
-          es.close()
-          // Auto-descarga inmediata al terminar
-          window.location.href = `/api/download/${jobId}`
-        } else if (data.status === 'error' || data.status === 'cancelled') {
-          setPhase('error')
-          setMessage(data.message ?? 'Error desconocido')
-          es.close()
-        }
-      }
-
-      es.onerror = () => {
+      setPhase('done')
+      setMessage('Video listo')
+      downloadBuffer(buffer, `${config.name || 'video'}.mp4`)
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
         setPhase('error')
-        setMessage('Error de conexión con el servidor')
-        es.close()
+        setMessage('Exportación cancelada')
+      } else {
+        setPhase('error')
+        setMessage(String(err))
       }
-    } catch (err) {
-      setPhase('error')
-      setMessage(String(err))
     }
   }
 
-  async function cancelRender() {
-    if (!jobId) return
-    await fetch(`/api/cancel/${jobId}`, { method: 'POST' })
-    esRef.current?.close()
-    setPhase('error')
-    setMessage('Renderizado cancelado')
+  function cancelRender() {
+    abortRef.current?.abort()
   }
-
-  function download() {
-    if (!jobId) return
-    window.location.href = `/api/download/${jobId}`
-  }
-
-  // Cleanup on unmount
-  useEffect(() => () => { esRef.current?.close() }, [])
 
   return (
     <>
@@ -125,25 +99,31 @@ export function ExportModal() {
             </p>
 
             {phase === 'idle' && (
-              <label className="flex items-center gap-3 mb-5 p-3 rounded-lg bg-gray-800 cursor-pointer select-none">
-                <div
-                  onClick={() => setFastMode((v) => !v)}
-                  className={`relative w-10 h-5 rounded-full transition-colors ${fastMode ? 'bg-amber-500' : 'bg-gray-600'}`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${fastMode ? 'translate-x-5' : ''}`} />
-                </div>
-                <div onClick={() => setFastMode((v) => !v)}>
-                  <p className="text-sm font-medium text-white">Modo rápido</p>
-                  <p className="text-xs text-gray-400">
-                    {fastMode
-                      ? '~3–4x más rápido · resolución 50% · archivo más pequeño'
-                      : 'Calidad completa · resolución original'}
-                  </p>
-                </div>
-              </label>
+              <div className="mb-5 space-y-2">
+                <p className="text-xs text-gray-400 mb-3">
+                  El video se renderiza directamente en tu navegador — sin esperar al servidor.
+                </p>
+                <label className="flex items-center gap-3 p-3 rounded-lg bg-gray-800 cursor-pointer select-none">
+                  <div
+                    onClick={() => setQuality((v) => v === 'high' ? 'medium' : 'high')}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${quality === 'medium' ? 'bg-amber-500' : 'bg-indigo-600'}`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${quality === 'medium' ? 'translate-x-5' : ''}`} />
+                  </div>
+                  <div onClick={() => setQuality((v) => v === 'high' ? 'medium' : 'high')}>
+                    <p className="text-sm font-medium text-white">
+                      {quality === 'high' ? 'Calidad alta' : 'Calidad media'}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {quality === 'high'
+                        ? 'Máxima calidad · archivo mayor'
+                        : 'Archivo más pequeño · renderizado más rápido'}
+                    </p>
+                  </div>
+                </label>
+              </div>
             )}
 
-            {/* Progress bar */}
             {phase === 'rendering' && (
               <div className="mb-5">
                 <div className="flex justify-between text-xs text-gray-400 mb-1">
@@ -156,13 +136,16 @@ export function ExportModal() {
                     style={{ width: `${progress}%` }}
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Renderizando en tu navegador con WebCodecs
+                </p>
               </div>
             )}
 
             {phase === 'done' && (
               <div className="mb-5 p-3 bg-green-900/30 border border-green-700 rounded-lg">
                 <p className="text-green-400 text-sm font-medium">Video listo</p>
-                <p className="text-green-600 text-xs mt-0.5">El render completó correctamente.</p>
+                <p className="text-green-600 text-xs mt-0.5">La descarga comenzó automáticamente.</p>
               </div>
             )}
 
@@ -173,28 +156,18 @@ export function ExportModal() {
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex gap-2 justify-end">
               {phase === 'idle' && (
                 <>
                   <Button variant="ghost" onClick={close}>Cancelar</Button>
-                  <Button variant="primary" onClick={startRender}>
-                    Iniciar Render
-                  </Button>
+                  <Button variant="primary" onClick={startRender}>Iniciar Render</Button>
                 </>
               )}
               {phase === 'rendering' && (
-                <Button variant="danger" onClick={cancelRender}>
-                  Cancelar
-                </Button>
+                <Button variant="danger" onClick={cancelRender}>Cancelar</Button>
               )}
               {phase === 'done' && (
-                <>
-                  <Button variant="secondary" onClick={close}>Cerrar</Button>
-                  <Button variant="primary" onClick={download}>
-                    Descargar MP4
-                  </Button>
-                </>
+                <Button variant="secondary" onClick={close}>Cerrar</Button>
               )}
               {phase === 'error' && (
                 <>

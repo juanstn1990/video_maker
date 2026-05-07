@@ -25,7 +25,7 @@ async function uploadFile(file: File): Promise<UploadedMedia> {
 
 export function MediaPanel() {
   const { items, addMedia, removeMedia } = useMediaStore()
-  const { addImageClip, addImageClips, addTitleClip, setAudioTrack, config } = useEditorStore()
+  const { addImageClip, addImageClips, addVideoClip, addTitleClip, setAudioTrack, config } = useEditorStore()
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -33,6 +33,7 @@ export function MediaPanel() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const images = items.filter((m) => m.type === 'image')
+  const videos = items.filter((m) => m.type === 'video')
   const audios = items.filter((m) => m.type === 'audio')
 
   async function handleFiles(files: FileList | File[]) {
@@ -83,6 +84,13 @@ export function MediaPanel() {
     e.dataTransfer.effectAllowed = 'copy'
   }
 
+  function onVideoDragStart(e: DragEvent, vid: UploadedMedia) {
+    e.dataTransfer.setData('video-media-id', vid.mediaId)
+    e.dataTransfer.setData('video-url', vid.url)
+    e.dataTransfer.setData('video-duration', String(vid.durationSeconds ?? 0))
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+
   function onAudioDragStart(e: DragEvent, aud: UploadedMedia) {
     e.dataTransfer.setData('audio-media-id', aud.mediaId)
     e.dataTransfer.setData('audio-url', aud.url)
@@ -116,14 +124,14 @@ export function MediaPanel() {
           <p className="text-xs text-gray-400">
             {uploading ? 'Subiendo...' : (
               <>
-                <span className="hidden md:inline">Arrastra imágenes o audio aquí</span>
-                <span className="inline md:hidden">Toca para subir fotos o audio</span>
+                <span className="hidden md:inline">Arrastra imágenes, videos o audio aquí</span>
+                <span className="inline md:hidden">Toca para subir media</span>
               </>
             )}
           </p>
           <p className="text-xs text-gray-600 mt-1">
             <span className="hidden md:inline">o haz click para seleccionar</span>
-            <span className="inline md:hidden">JPG, PNG, MP3...</span>
+            <span className="inline md:hidden">JPG, PNG, MP4, MP3...</span>
           </p>
         </div>
         <input
@@ -131,7 +139,7 @@ export function MediaPanel() {
           type="file"
           className="hidden"
           multiple
-          accept="image/*,audio/*,.mpeg,.mpg,.mp3,.mp2,.m4a,.ogg,.wav,.flac,.aac,.opus"
+          accept="image/*,video/*,audio/*,.mpeg,.mpg,.mp3,.mp2,.m4a,.ogg,.wav,.flac,.aac,.opus"
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
         />
 
@@ -235,6 +243,65 @@ export function MediaPanel() {
           </div>
         )}
 
+        {/* Videos */}
+        {videos.length > 0 && (
+          <div>
+            <h3 className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+              Videos ({videos.length})
+            </h3>
+            <p className="text-[10px] text-gray-600 mb-2 hidden md:block">
+              Click → agregar · Drag → arrastrar al timeline
+            </p>
+            <div className="grid grid-cols-3 md:grid-cols-2 gap-2">
+              {videos.map((vid) => (
+                <div
+                  key={vid.mediaId}
+                  className="relative aspect-square rounded overflow-hidden border border-gray-700 hover:border-gray-500 transition-colors group cursor-grab active:cursor-grabbing"
+                  draggable
+                  onDragStart={(e) => onVideoDragStart(e, vid)}
+                  title={vid.filename}
+                >
+                  {vid.thumbnailUrl ? (
+                    <img
+                      src={vid.thumbnailUrl}
+                      alt={vid.filename}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                      <span className="text-2xl">🎬</span>
+                    </div>
+                  )}
+
+                  {/* Duration badge */}
+                  {vid.durationSeconds != null && (
+                    <span className="absolute bottom-1 left-1 text-[9px] bg-black/70 text-white rounded px-1 py-0.5">
+                      {Math.floor(vid.durationSeconds / 60)}:{String(Math.round(vid.durationSeconds % 60)).padStart(2, '0')}
+                    </span>
+                  )}
+
+                  {/* Click overlay → add to timeline */}
+                  <div
+                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    onClick={() => addVideoClip(vid.mediaId, vid.url, vid.durationSeconds ?? 0)}
+                  >
+                    <span className="text-white text-xs font-medium">+ Agregar</span>
+                  </div>
+
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => deleteMedia(vid.mediaId, e)}
+                    title="Eliminar"
+                    className="absolute top-1 right-1 z-20 w-6 h-6 flex items-center justify-center rounded-full bg-red-600/90 text-white text-xs font-bold opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-80 focus:opacity-100 active:opacity-100 transition-opacity hover:bg-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Audio */}
         {audios.length > 0 && (
           <div>
@@ -290,7 +357,7 @@ export function MediaPanel() {
 
         {items.length === 0 && (
           <p className="text-xs text-gray-600 text-center mt-4">
-            No hay archivos subidos
+            Sube imágenes, videos o audio para comenzar
           </p>
         )}
       </div>

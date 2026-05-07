@@ -3,6 +3,7 @@ import type { VideoConfig, ClipConfig } from '../types/video'
 import { GOOGLE_FONTS_URL } from '../constants/fonts'
 import { ImageSlide } from './ImageSlide'
 import { TitleSlide } from './TitleSlide'
+import { VideoSlide } from './VideoSlide'
 import { TextOverlayComponent } from './TextOverlay'
 import { SubtitleLayer } from './SubtitleLayer'
 import { computeClipTimings } from './utils/timing'
@@ -120,6 +121,8 @@ export const VideoSlideshow: React.FC<Props> = ({ config }) => {
             <ClipContainer clip={clip} index={index}>
               {clip.type === 'image' ? (
                 <ImageSlide clip={clip} />
+              ) : clip.type === 'video' ? (
+                <VideoSlide clip={clip} />
               ) : (
                 <TitleSlide clip={clip} />
               )}
