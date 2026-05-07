@@ -7,6 +7,7 @@ import type {
   ImageClipConfig,
   TitleClipConfig,
   VideoClipConfig,
+  ColorClipConfig,
   TextOverlay,
   AudioTrackConfig,
   SubtitleConfig,
@@ -36,6 +37,8 @@ interface EditorStore {
   addImageClips: (items: Array<{ mediaId: string; mediaUrl: string }>) => void
   addVideoClip: (mediaId: string, mediaUrl: string, durationSeconds: number) => void
   addTitleClip: () => void
+  moveTitleClip: (clipId: string, position: 'start' | 'end') => void
+  addColorClip: (color?: string) => void
   removeClip: (clipId: string) => void
   reorderClips: (fromIndex: number, toIndex: number) => void
   updateClipDuration: (clipId: string, frames: number) => void
@@ -43,6 +46,8 @@ interface EditorStore {
   updateTransition: (clipId: string, t: Partial<TransitionConfig>) => void
   updateImageClip: (clipId: string, updates: Partial<Omit<ImageClipConfig, 'id' | 'type'>>) => void
   updateTitleClip: (clipId: string, updates: Partial<Omit<TitleClipConfig, 'id' | 'type'>>) => void
+  updateVideoClip: (clipId: string, updates: Partial<Omit<VideoClipConfig, 'id' | 'type'>>) => void
+  updateColorClip: (clipId: string, updates: Partial<Omit<ColorClipConfig, 'id' | 'type'>>) => void
 
   // Apply-to-all bulk actions for image clips
   applyTransitionToAllImages: (t: Partial<TransitionConfig>) => void
@@ -136,6 +141,7 @@ export const useEditorStore = create<EditorStore>()(
           transitionIn: { ...DEFAULT_TRANSITION },
           textOverlays: [],
           volume: 1,
+          muted: true,
           startFromSeconds: 0,
           fitMode: 'cover',
         }
@@ -223,6 +229,20 @@ export const useEditorStore = create<EditorStore>()(
         state.config.totalFrames = computeTotalFrames(state.config.clips)
       }),
 
+    addColorClip: (color = '#1e1e2e') =>
+      set((state) => {
+        const clip: ColorClipConfig = {
+          id: uid(),
+          type: 'color',
+          backgroundColor: color,
+          durationFrames: 90,
+          transitionIn: { type: 'fade', durationFrames: 15 },
+          textOverlays: [],
+        }
+        state.config.clips.push(clip)
+        state.config.totalFrames = computeTotalFrames(state.config.clips)
+      }),
+
     addTitleClip: () =>
       set((state) => {
         const clip: TitleClipConfig = {
@@ -239,7 +259,17 @@ export const useEditorStore = create<EditorStore>()(
           animationIn: 'fadeIn',
           animationOut: 'fadeIn',
         }
-        state.config.clips.push(clip)
+        state.config.clips.unshift(clip)
+        state.config.totalFrames = computeTotalFrames(state.config.clips)
+      }),
+
+    moveTitleClip: (clipId, position) =>
+      set((state) => {
+        const idx = state.config.clips.findIndex((c) => c.id === clipId)
+        if (idx === -1) return
+        const [clip] = state.config.clips.splice(idx, 1)
+        if (position === 'start') state.config.clips.unshift(clip)
+        else state.config.clips.push(clip)
         state.config.totalFrames = computeTotalFrames(state.config.clips)
       }),
 
@@ -286,6 +316,20 @@ export const useEditorStore = create<EditorStore>()(
       set((state) => {
         const clip = state.config.clips.find((c) => c.id === clipId)
         if (clip?.type === 'title') Object.assign(clip, updates)
+      }),
+
+    updateVideoClip: (clipId, updates) =>
+      set((state) => {
+        const clip = state.config.clips.find((c) => c.id === clipId)
+        if (clip?.type === 'video') Object.assign(clip, updates)
+        state.config.totalFrames = computeTotalFrames(state.config.clips)
+      }),
+
+    updateColorClip: (clipId, updates) =>
+      set((state) => {
+        const clip = state.config.clips.find((c) => c.id === clipId)
+        if (clip?.type === 'color') Object.assign(clip, updates)
+        state.config.totalFrames = computeTotalFrames(state.config.clips)
       }),
 
     addTextOverlay: (clipId) =>

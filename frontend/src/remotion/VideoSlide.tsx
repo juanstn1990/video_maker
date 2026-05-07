@@ -13,7 +13,7 @@ export const VideoSlide: React.FC<Props> = ({ clip }) => {
       <Video
         src={clip.mediaUrl}
         startFrom={Math.round(clip.startFromSeconds * fps)}
-        volume={clip.volume}
+        volume={clip.muted ? 0 : clip.volume}
         style={{
           width: '100%',
           height: '100%',

@@ -4,6 +4,7 @@ import type {
   ImageClipConfig,
   TitleClipConfig,
   VideoClipConfig,
+  ColorClipConfig,
   TextOverlay,
   SubtitleConfig,
   Subtitle,
@@ -220,6 +221,7 @@ export class VideoRenderer {
   private async drawClip(clip: ClipConfig, localFrame: number, w: number, h: number): Promise<void> {
     if (clip.type === 'image') await this.drawImageClip(clip, localFrame, w, h)
     else if (clip.type === 'video') await this.drawVideoClip(clip, localFrame, w, h)
+    else if (clip.type === 'color') this.drawColorClip(clip, w, h)
     else await this.drawTitleClip(clip, localFrame, w, h)
   }
 
@@ -264,6 +266,11 @@ export class VideoRenderer {
 
     ctx.restore()
     ctx.filter = 'none'
+  }
+
+  private drawColorClip(clip: ColorClipConfig, w: number, h: number): void {
+    this.ctx.fillStyle = clip.backgroundColor
+    this.ctx.fillRect(0, 0, w, h)
   }
 
   private async drawVideoClip(clip: VideoClipConfig, localFrame: number, w: number, h: number): Promise<void> {

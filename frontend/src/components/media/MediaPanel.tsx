@@ -152,6 +152,7 @@ export function MediaPanel() {
         >
           + Agregar Título
         </Button>
+
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">

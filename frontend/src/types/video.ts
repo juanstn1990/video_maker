@@ -98,7 +98,7 @@ export interface SubtitleConfig {
 }
 
 // ─── Clips ──────────────────────────────────────────────────────────────────
-export type ClipType = 'image' | 'title' | 'video'
+export type ClipType = 'image' | 'title' | 'video' | 'color'
 
 interface BaseClip {
   id: string
@@ -146,11 +146,17 @@ export interface VideoClipConfig extends BaseClip {
   mediaUrl: string
   durationSeconds: number  // original video duration for reference
   volume: number           // 0..1 — video's own audio
+  muted: boolean
   startFromSeconds: number // trim start point
   fitMode: ImageFitMode
 }
 
-export type ClipConfig = ImageClipConfig | TitleClipConfig | VideoClipConfig
+export interface ColorClipConfig extends BaseClip {
+  type: 'color'
+  backgroundColor: string  // hex color
+}
+
+export type ClipConfig = ImageClipConfig | TitleClipConfig | VideoClipConfig | ColorClipConfig
 
 // ─── Audio ──────────────────────────────────────────────────────────────────
 export interface AudioTrackConfig {

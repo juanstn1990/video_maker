@@ -4,8 +4,8 @@ import { Button } from '../ui/Button'
 import { Slider } from '../ui/Slider'
 import { Select } from '../ui/Select'
 import { ColorInput } from '../ui/ColorInput'
+import { FontPicker } from '../ui/FontPicker'
 import { v4 as uuidv4 } from 'uuid'
-import { FONT_OPTIONS } from '../../constants/fonts'
 import type { SubtitleConfig, Subtitle, SubtitleAnimation } from '../../types/video'
 
 const ANIMATION_OPTIONS: { value: SubtitleAnimation; label: string }[] = [
@@ -248,11 +248,10 @@ export function SubtitlePanel() {
           />
         )}
 
-        <Select
+        <FontPicker
           label="Fuente"
           value={sub.fontFamily}
-          options={FONT_OPTIONS}
-          onChange={(e) => updateConfig({ fontFamily: e.target.value })}
+          onChange={(fontFamily) => updateConfig({ fontFamily })}
         />
 
         <Slider

@@ -51,7 +51,11 @@ export function TimelineClip({ clip, index, zoom }: Props) {
     window.addEventListener('mouseup', onUp)
   }
 
-  const bgColor = clip.type === 'image' ? 'bg-indigo-800' : 'bg-purple-800'
+  const bgColor =
+    clip.type === 'image' ? 'bg-indigo-800' :
+    clip.type === 'video' ? 'bg-teal-800' :
+    clip.type === 'color' ? 'bg-amber-900' :
+    'bg-purple-800'
   const borderColor = isSelected ? 'border-white' : 'border-transparent'
 
   return (
@@ -72,9 +76,22 @@ export function TimelineClip({ clip, index, zoom }: Props) {
             className="h-9 w-full object-cover rounded pointer-events-none"
             draggable={false}
           />
+        ) : clip.type === 'video' ? (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-teal-300 text-sm flex-shrink-0">▶</span>
+            <span className="text-white text-xs truncate font-medium">Video</span>
+          </div>
+        ) : clip.type === 'color' ? (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className="w-4 h-4 rounded flex-shrink-0 border border-white/30"
+              style={{ backgroundColor: clip.backgroundColor }}
+            />
+            <span className="text-white text-xs truncate font-medium">Color</span>
+          </div>
         ) : (
           <span className="text-white text-xs truncate font-medium">
-            {clip.type === 'title' ? clip.text : 'Imagen'}
+            {clip.type === 'title' ? clip.text : 'Clip'}
           </span>
         )}
       </div>

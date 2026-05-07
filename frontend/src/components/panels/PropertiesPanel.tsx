@@ -3,6 +3,8 @@ import { useEditorStore } from '../../store/useEditorStore'
 import { useTimelineStore } from '../../store/useTimelineStore'
 import { ImageClipPanel } from './ImageClipPanel'
 import { TitleClipPanel } from './TitleClipPanel'
+import { VideoClipPanel } from './VideoClipPanel'
+import { ColorClipPanel } from './ColorClipPanel'
 import { AudioPanel } from './AudioPanel'
 import { VideoSettingsPanel } from './VideoSettingsPanel'
 import { SubtitlePanel } from './SubtitlePanel'
@@ -57,6 +59,8 @@ export function PropertiesPanel() {
             )}
             {selectedClip?.type === 'image' && <ImageClipPanel clip={selectedClip} />}
             {selectedClip?.type === 'title' && <TitleClipPanel clip={selectedClip} />}
+            {selectedClip?.type === 'video' && <VideoClipPanel clip={selectedClip} />}
+            {selectedClip?.type === 'color' && <ColorClipPanel clip={selectedClip} />}
           </>
         )}
         {tab === 'audio' && <AudioPanel />}

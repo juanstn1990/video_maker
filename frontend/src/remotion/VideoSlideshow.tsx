@@ -123,6 +123,8 @@ export const VideoSlideshow: React.FC<Props> = ({ config }) => {
                 <ImageSlide clip={clip} />
               ) : clip.type === 'video' ? (
                 <VideoSlide clip={clip} />
+              ) : clip.type === 'color' ? (
+                <AbsoluteFill style={{ backgroundColor: clip.backgroundColor }} />
               ) : (
                 <TitleSlide clip={clip} />
               )}

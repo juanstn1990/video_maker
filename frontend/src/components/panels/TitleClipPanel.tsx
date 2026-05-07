@@ -3,7 +3,7 @@ import { Input } from '../ui/Input'
 import { Select } from '../ui/Select'
 import { Slider } from '../ui/Slider'
 import { ColorInput } from '../ui/ColorInput'
-import { FONT_OPTIONS } from '../../constants/fonts'
+import { FontPicker } from '../ui/FontPicker'
 import type { TitleClipConfig, TextAnimation } from '../../types/video'
 
 const ANIMATIONS: { value: TextAnimation; label: string }[] = [
@@ -32,9 +32,11 @@ const TRANSITIONS = [
 interface Props { clip: TitleClipConfig }
 
 export function TitleClipPanel({ clip }: Props) {
-  const { updateTitleClip, updateTransition, config } = useEditorStore()
+  const { updateTitleClip, updateTransition, moveTitleClip, config } = useEditorStore()
   const fps = config.fps
   const durationSec = clip.durationFrames / fps
+  const clipIndex = config.clips.findIndex((c) => c.id === clip.id)
+  const position = clipIndex === 0 ? 'start' : clipIndex === config.clips.length - 1 ? 'end' : 'middle'
 
   return (
     <div className="space-y-4 p-3">
@@ -62,11 +64,10 @@ export function TitleClipPanel({ clip }: Props) {
         onChange={(e) => updateTitleClip(clip.id, { durationFrames: parseInt(e.target.value) })}
       />
 
-      <Select
+      <FontPicker
         label="Fuente"
         value={clip.fontFamily}
-        options={FONT_OPTIONS}
-        onChange={(e) => updateTitleClip(clip.id, { fontFamily: e.target.value })}
+        onChange={(fontFamily) => updateTitleClip(clip.id, { fontFamily })}
       />
 
       <Slider
@@ -104,6 +105,28 @@ export function TitleClipPanel({ clip }: Props) {
         options={ANIMATIONS}
         onChange={(e) => updateTitleClip(clip.id, { animationOut: e.target.value as TextAnimation })}
       />
+
+      <div className="border-t border-gray-800 pt-3 space-y-2">
+        <h4 className="text-xs text-gray-500 uppercase tracking-wider">Posición en video</h4>
+        <div className="flex gap-2">
+          {(['start', 'end'] as const).map((pos) => (
+            <button
+              key={pos}
+              className={`flex-1 py-1.5 rounded text-xs font-medium transition-colors ${
+                position === pos
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+              onClick={() => moveTitleClip(clip.id, pos)}
+            >
+              {pos === 'start' ? 'Inicio' : 'Fin'}
+            </button>
+          ))}
+        </div>
+        {position === 'middle' && (
+          <p className="text-[10px] text-gray-500">Este clip está en medio del timeline</p>
+        )}
+      </div>
 
       <div className="border-t border-gray-800 pt-3 space-y-3">
         <h4 className="text-xs text-gray-500 uppercase tracking-wider">Transición</h4>
