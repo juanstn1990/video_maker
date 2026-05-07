@@ -6,12 +6,19 @@ import {
   AudioBufferSource,
   QUALITY_HIGH,
   QUALITY_MEDIUM,
+  QUALITY_LOW,
 } from 'mediabunny'
 import type { VideoConfig, AudioTrackConfig } from '../types/video'
 import { VideoRenderer } from './VideoRenderer'
 import { computeTotalFrames } from '../remotion/utils/timing'
 
-export type ExportQuality = 'high' | 'medium'
+export type ExportQuality = 'high' | 'medium' | 'low'
+
+const QUALITY_FPS: Record<ExportQuality, number> = {
+  high: 30,
+  medium: 15,
+  low: 10,
+}
 
 export type ExportProgress = {
   phase: 'preloading' | 'audio' | 'encoding'
@@ -21,13 +28,16 @@ export type ExportProgress = {
 
 export async function exportVideo(
   config: VideoConfig,
-  quality: ExportQuality = 'high',
+  quality: ExportQuality = 'low',
   onProgress?: (p: ExportProgress) => void,
   signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
   const [w, h] = config.resolution.split('x').map(Number)
-  const fps = config.fps
-  const totalFrames = config.totalFrames || computeTotalFrames(config.clips)
+  const fps = QUALITY_FPS[quality]
+  const projectFps = config.fps
+  const projectTotalFrames = config.totalFrames || computeTotalFrames(config.clips)
+  const totalDurationSeconds = projectTotalFrames / projectFps
+  const totalFrames = Math.round(totalDurationSeconds * fps)
 
   // Create offscreen canvas for rendering
   const canvas = document.createElement('canvas')
@@ -44,13 +54,13 @@ export async function exportVideo(
   let audioBuffer: AudioBuffer | null = null
   if (config.audioTrack) {
     onProgress?.({ phase: 'audio', progress: 0.05, message: 'Procesando audio...' })
-    audioBuffer = await prepareAudioBuffer(config.audioTrack, totalFrames, fps)
+    audioBuffer = await prepareAudioBuffer(config.audioTrack, totalDurationSeconds, projectFps)
   }
 
   if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError')
 
   // ─── Setup mediabunny output ──────────────────────────────────────────────
-  const bitrate = quality === 'high' ? QUALITY_HIGH : QUALITY_MEDIUM
+  const bitrate = quality === 'high' ? QUALITY_HIGH : quality === 'medium' ? QUALITY_MEDIUM : QUALITY_LOW
 
   const target = new BufferTarget()
   const output = new Output({ format: new Mp4OutputFormat(), target })
@@ -94,7 +104,9 @@ export async function exportVideo(
       throw new DOMException('Export cancelled', 'AbortError')
     }
 
-    await renderer.renderFrame(i)
+    // Convert export frame index to the equivalent project frame (project uses its own fps)
+    const projectFrame = Math.round((i / fps) * projectFps)
+    await renderer.renderFrame(projectFrame)
     await videoSource.add(i / fps, 1 / fps)
 
     onProgress?.({
@@ -123,10 +135,9 @@ export async function exportVideo(
 
 async function prepareAudioBuffer(
   track: AudioTrackConfig,
-  totalFrames: number,
-  fps: number,
+  totalSeconds: number,
+  projectFps: number,
 ): Promise<AudioBuffer> {
-  const totalSeconds = totalFrames / fps
   const sampleRate = 44100
   const numChannels = 2
 
@@ -147,13 +158,13 @@ async function prepareAudioBuffer(
   gainNode.gain.value = track.volume
 
   if (track.fadeInFrames > 0) {
-    const fadeInEnd = track.fadeInFrames / fps
+    const fadeInEnd = track.fadeInFrames / projectFps
     gainNode.gain.setValueAtTime(0, 0)
     gainNode.gain.linearRampToValueAtTime(track.volume, fadeInEnd)
   }
 
   if (track.fadeOutFrames > 0) {
-    const fadeOutStart = Math.max(0, totalSeconds - track.fadeOutFrames / fps)
+    const fadeOutStart = Math.max(0, totalSeconds - track.fadeOutFrames / projectFps)
     gainNode.gain.setValueAtTime(track.volume, fadeOutStart)
     gainNode.gain.linearRampToValueAtTime(0, totalSeconds)
   }

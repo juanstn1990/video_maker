@@ -11,7 +11,7 @@ export function ExportModal() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState('')
-  const [quality, setQuality] = useState<ExportQuality>('high')
+  const [quality, setQuality] = useState<ExportQuality>('low')
   const abortRef = useRef<AbortController | null>(null)
   const { config, savedProjectId, setSavedProjectId } = useEditorStore()
 
@@ -103,24 +103,33 @@ export function ExportModal() {
                 <p className="text-xs text-gray-400 mb-3">
                   El video se renderiza directamente en tu navegador — sin esperar al servidor.
                 </p>
-                <label className="flex items-center gap-3 p-3 rounded-lg bg-gray-800 cursor-pointer select-none">
-                  <div
-                    onClick={() => setQuality((v) => v === 'high' ? 'medium' : 'high')}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${quality === 'medium' ? 'bg-amber-500' : 'bg-indigo-600'}`}
+                {([
+                  { value: 'high' as ExportQuality, label: 'Alta', fps: '30 fps', desc: 'Máxima calidad · archivo mayor' },
+                  { value: 'medium' as ExportQuality, label: 'Media', fps: '15 fps', desc: 'Balance entre calidad y tamaño' },
+                  { value: 'low' as ExportQuality, label: 'Baja', fps: '10 fps', desc: 'Archivo más pequeño · más rápido' },
+                ] as const).map(({ value, label, fps, desc }) => (
+                  <button
+                    key={value}
+                    onClick={() => setQuality(value)}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${
+                      quality === value
+                        ? 'bg-indigo-900/40 border-indigo-500'
+                        : 'bg-gray-800 border-gray-700 hover:border-gray-500'
+                    }`}
                   >
-                    <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${quality === 'medium' ? 'translate-x-5' : ''}`} />
-                  </div>
-                  <div onClick={() => setQuality((v) => v === 'high' ? 'medium' : 'high')}>
-                    <p className="text-sm font-medium text-white">
-                      {quality === 'high' ? 'Calidad alta' : 'Calidad media'}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {quality === 'high'
-                        ? 'Máxima calidad · archivo mayor'
-                        : 'Archivo más pequeño · renderizado más rápido'}
-                    </p>
-                  </div>
-                </label>
+                    <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                      quality === value ? 'border-indigo-500' : 'border-gray-500'
+                    }`}>
+                      {quality === value && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-white">
+                        {label} <span className="text-gray-400 font-normal">· {fps}</span>
+                      </p>
+                      <p className="text-xs text-gray-400">{desc}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             )}
 
