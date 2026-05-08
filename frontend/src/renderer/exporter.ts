@@ -4,9 +4,6 @@ import {
   BufferTarget,
   CanvasSource,
   AudioBufferSource,
-  QUALITY_HIGH,
-  QUALITY_MEDIUM,
-  QUALITY_LOW,
 } from 'mediabunny'
 import type { VideoConfig, AudioTrackConfig } from '../types/video'
 import { VideoRenderer } from './VideoRenderer'
@@ -18,6 +15,19 @@ const QUALITY_FPS: Record<ExportQuality, number> = {
   high: 30,
   medium: 15,
   low: 10,
+}
+
+// Explicit bitrates (bps) — keeps file sizes reasonable for social/web
+const VIDEO_BITRATE: Record<ExportQuality, number> = {
+  high: 5_000_000,
+  medium: 2_500_000,
+  low: 1_000_000,
+}
+
+const AUDIO_BITRATE: Record<ExportQuality, number> = {
+  high: 192_000,
+  medium: 128_000,
+  low: 96_000,
 }
 
 export type ExportProgress = {
@@ -60,12 +70,13 @@ export async function exportVideo(
   if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError')
 
   // ─── Setup mediabunny output ──────────────────────────────────────────────
-  const bitrate = quality === 'high' ? QUALITY_HIGH : quality === 'medium' ? QUALITY_MEDIUM : QUALITY_LOW
+  const videoBitrate = VIDEO_BITRATE[quality]
+  const audioBitrate = AUDIO_BITRATE[quality]
 
   const target = new BufferTarget()
   const output = new Output({ format: new Mp4OutputFormat(), target })
 
-  const videoSource = new CanvasSource(canvas, { codec: 'avc', bitrate })
+  const videoSource = new CanvasSource(canvas, { codec: 'avc', bitrate: videoBitrate })
   output.addVideoTrack(videoSource, { frameRate: fps })
 
   let audioSource: AudioBufferSource | null = null
@@ -78,14 +89,14 @@ export async function exportVideo(
           codec: 'mp4a.40.2',
           sampleRate: audioBuffer.sampleRate,
           numberOfChannels: audioBuffer.numberOfChannels,
-          bitrate: 192_000,
+          bitrate: audioBitrate,
         })
         if (!supported) audioCodec = 'opus'
       } catch {
         audioCodec = 'opus'
       }
     }
-    audioSource = new AudioBufferSource({ codec: audioCodec, bitrate })
+    audioSource = new AudioBufferSource({ codec: audioCodec, bitrate: audioBitrate })
     output.addAudioTrack(audioSource)
   }
 
