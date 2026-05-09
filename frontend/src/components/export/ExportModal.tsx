@@ -3,6 +3,17 @@ import { useEditorStore } from '../../store/useEditorStore'
 import { Button } from '../ui/Button'
 import { exportVideo, downloadBuffer } from '../../renderer/exporter'
 import type { ExportQuality, ExportProgress } from '../../renderer/exporter'
+import { computeTotalFrames } from '../../remotion/utils/timing'
+
+const QUALITY_FPS = { high: 30, medium: 15, low: 10 }
+const VIDEO_MBPS = { high: 5, medium: 2.5, low: 1 }
+const AUDIO_KBPS = { high: 192, medium: 128, low: 96 }
+
+function estimateMB(durationSec: number, q: ExportQuality): string {
+  const videoMb = (VIDEO_MBPS[q] * durationSec) / 8
+  const audioMb = (AUDIO_KBPS[q] * 1000 * durationSec) / 8 / 1_000_000
+  return (videoMb + audioMb).toFixed(0)
+}
 
 type Phase = 'idle' | 'rendering' | 'done' | 'error'
 
@@ -14,6 +25,9 @@ export function ExportModal() {
   const [quality, setQuality] = useState<ExportQuality>('low')
   const abortRef = useRef<AbortController | null>(null)
   const { config, savedProjectId, setSavedProjectId } = useEditorStore()
+
+  const totalFrames = config.totalFrames || computeTotalFrames(config.clips)
+  const durationSec = totalFrames / config.fps
 
   async function autoSave() {
     try {
@@ -104,10 +118,10 @@ export function ExportModal() {
                   El video se renderiza directamente en tu navegador — sin esperar al servidor.
                 </p>
                 {([
-                  { value: 'high' as ExportQuality, label: 'Alta', fps: '30 fps', desc: 'Máxima calidad · archivo mayor' },
-                  { value: 'medium' as ExportQuality, label: 'Media', fps: '15 fps', desc: 'Balance entre calidad y tamaño' },
-                  { value: 'low' as ExportQuality, label: 'Baja', fps: '10 fps', desc: 'Archivo más pequeño · más rápido' },
-                ] as const).map(({ value, label, fps, desc }) => (
+                  { value: 'high' as ExportQuality, label: 'Alta', desc: 'Máxima calidad' },
+                  { value: 'medium' as ExportQuality, label: 'Media', desc: 'Balance calidad/tamaño' },
+                  { value: 'low' as ExportQuality, label: 'Baja', desc: 'Menor tamaño · más rápido' },
+                ] as const).map(({ value, label, desc }) => (
                   <button
                     key={value}
                     onClick={() => setQuality(value)}
@@ -124,9 +138,14 @@ export function ExportModal() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">
-                        {label} <span className="text-gray-400 font-normal">· {fps}</span>
+                        {label}
+                        <span className="text-gray-400 font-normal">
+                          {' '}· {QUALITY_FPS[value]} fps · {VIDEO_MBPS[value]} Mbps
+                        </span>
                       </p>
-                      <p className="text-xs text-gray-400">{desc}</p>
+                      <p className="text-xs text-gray-400">
+                        {desc} · ~{estimateMB(durationSec, value)} MB
+                      </p>
                     </div>
                   </button>
                 ))}
