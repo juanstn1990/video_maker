@@ -82,29 +82,41 @@ export const VideoSlideshow: React.FC<Props> = ({ config }) => {
   const { fps } = useVideoConfig()
   const timings = computeClipTimings(config.clips)
 
+  // Audio starts at the END of the last consecutive leading title clip
+  let audioStartFrame = 0
+  let audioEndFrame = config.totalFrames
+  for (let i = 0; i < config.clips.length; i++) {
+    if (config.clips[i].type !== 'title') break
+    const t = timings[i]
+    audioStartFrame = t.startFrame + t.durationFrames
+  }
+  // Audio ends at the END of the last non-title clip
+  for (let i = config.clips.length - 1; i >= 0; i--) {
+    if (config.clips[i].type !== 'title') {
+      const t = timings[i]; audioEndFrame = t.startFrame + t.durationFrames; break
+    }
+  }
+  const audioDuration = Math.max(1, audioEndFrame - audioStartFrame)
+
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
 
-      {/* Audio track */}
+      {/* Audio track — only plays between first and last non-title clip */}
       {config.audioTrack && (
-        <Audio
-          src={config.audioTrack.mediaUrl}
-          startFrom={Math.round(config.audioTrack.startFromSeconds * fps)}
-          volume={(frame) => {
-            const track = config.audioTrack!
-            const totalFrames = config.totalFrames
-            const fadeIn = track.fadeInFrames
-            const fadeOut = track.fadeOutFrames
-
-            if (frame < fadeIn && fadeIn > 0) {
-              return (frame / fadeIn) * track.volume
-            }
-            if (frame > totalFrames - fadeOut && fadeOut > 0) {
-              return ((totalFrames - frame) / fadeOut) * track.volume
-            }
-            return track.volume
-          }}
-        />
+        <Sequence from={audioStartFrame} durationInFrames={audioDuration} layout="none">
+          <Audio
+            src={config.audioTrack.mediaUrl}
+            startFrom={Math.round(config.audioTrack.startFromSeconds * fps)}
+            volume={(frame) => {
+              const track = config.audioTrack!
+              const fadeIn = track.fadeInFrames
+              const fadeOut = track.fadeOutFrames
+              if (frame < fadeIn && fadeIn > 0) return (frame / fadeIn) * track.volume
+              if (frame > audioDuration - fadeOut && fadeOut > 0) return ((audioDuration - frame) / fadeOut) * track.volume
+              return track.volume
+            }}
+          />
+        </Sequence>
       )}
 
       {/* Clips */}

@@ -377,13 +377,20 @@ export class VideoRenderer {
     ctx.shadowColor = 'rgba(0,0,0,0.8)'
     ctx.shadowBlur = 20
     ctx.fillStyle = clip.color
-    ctx.fillText(visibleText, 0, 0)
+
+    const lines = this.wrapText(visibleText, w * 0.85)
+    const lineHeight = clip.fontSize * 1.2
+    const totalTextHeight = lines.length * lineHeight
+    lines.forEach((line, i) => {
+      const lineY = (i - (lines.length - 1) / 2) * lineHeight
+      ctx.fillText(line, 0, lineY)
+    })
 
     if (clip.subtext) {
       const subSize = clip.fontSize * 0.5
       ctx.font = `${subSize}px ${clip.fontFamily}`
       ctx.globalAlpha = Math.max(0, opacity * 0.85)
-      ctx.fillText(clip.subtext, 0, clip.fontSize * 0.5 + 16)
+      ctx.fillText(clip.subtext, 0, totalTextHeight / 2 + 16)
     }
 
     ctx.shadowBlur = 0

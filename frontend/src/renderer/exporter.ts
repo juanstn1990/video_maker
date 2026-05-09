@@ -10,7 +10,7 @@ import {
 } from 'mediabunny'
 import type { VideoConfig, AudioTrackConfig } from '../types/video'
 import { VideoRenderer } from './VideoRenderer'
-import { computeTotalFrames } from '../remotion/utils/timing'
+import { computeClipTimings, computeTotalFrames } from '../remotion/utils/timing'
 
 export type ExportQuality = 'high' | 'medium' | 'low'
 
@@ -54,7 +54,8 @@ export async function exportVideo(
   let audioBuffer: AudioBuffer | null = null
   if (config.audioTrack) {
     onProgress?.({ phase: 'audio', progress: 0.05, message: 'Procesando audio...' })
-    audioBuffer = await prepareAudioBuffer(config.audioTrack, totalDurationSeconds, projectFps)
+    const { startSeconds: audioStart, endSeconds: audioEnd } = computeAudioWindow(config)
+    audioBuffer = await prepareAudioBuffer(config.audioTrack, totalDurationSeconds, projectFps, audioStart, audioEnd)
   }
 
   if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError')
@@ -131,12 +132,41 @@ export async function exportVideo(
   return buffer
 }
 
+// ─── Audio window (exclude leading/trailing title clips) ──────────────────
+
+function computeAudioWindow(config: VideoConfig): { startSeconds: number; endSeconds: number } {
+  const timings = computeClipTimings(config.clips)
+  const totalFrames = config.totalFrames || computeTotalFrames(config.clips)
+  const fps = config.fps
+
+  let startFrame = 0
+  let endFrame = totalFrames
+
+  // Audio starts at the END of the last consecutive leading title clip
+  for (let i = 0; i < config.clips.length; i++) {
+    if (config.clips[i].type !== 'title') break
+    const t = timings[i]
+    startFrame = t.startFrame + t.durationFrames
+  }
+
+  // Audio ends at the END of the last non-title clip
+  for (let i = config.clips.length - 1; i >= 0; i--) {
+    if (config.clips[i].type !== 'title') {
+      const t = timings[i]; endFrame = t.startFrame + t.durationFrames; break
+    }
+  }
+
+  return { startSeconds: startFrame / fps, endSeconds: endFrame / fps }
+}
+
 // ─── Audio preparation ─────────────────────────────────────────────────────
 
 async function prepareAudioBuffer(
   track: AudioTrackConfig,
   totalSeconds: number,
   projectFps: number,
+  audioStartSeconds: number = 0,
+  audioEndSeconds: number = totalSeconds,
 ): Promise<AudioBuffer> {
   const sampleRate = 44100
   const numChannels = 2
@@ -155,23 +185,28 @@ async function prepareAudioBuffer(
   source.buffer = decoded
 
   const gainNode = offlineCtx.createGain()
-  gainNode.gain.value = track.volume
+  gainNode.gain.setValueAtTime(0, 0)
 
   if (track.fadeInFrames > 0) {
-    const fadeInEnd = track.fadeInFrames / projectFps
-    gainNode.gain.setValueAtTime(0, 0)
-    gainNode.gain.linearRampToValueAtTime(track.volume, fadeInEnd)
+    const fadeInEnd = audioStartSeconds + track.fadeInFrames / projectFps
+    gainNode.gain.setValueAtTime(0, audioStartSeconds)
+    gainNode.gain.linearRampToValueAtTime(track.volume, Math.min(fadeInEnd, audioEndSeconds))
+  } else {
+    gainNode.gain.setValueAtTime(track.volume, audioStartSeconds)
   }
 
   if (track.fadeOutFrames > 0) {
-    const fadeOutStart = Math.max(0, totalSeconds - track.fadeOutFrames / projectFps)
+    const fadeOutStart = Math.max(audioStartSeconds, audioEndSeconds - track.fadeOutFrames / projectFps)
     gainNode.gain.setValueAtTime(track.volume, fadeOutStart)
-    gainNode.gain.linearRampToValueAtTime(0, totalSeconds)
+    gainNode.gain.linearRampToValueAtTime(0, audioEndSeconds)
   }
 
   source.connect(gainNode)
   gainNode.connect(offlineCtx.destination)
-  source.start(0, track.startFromSeconds)
+  source.start(audioStartSeconds, track.startFromSeconds)
+  if (audioEndSeconds < totalSeconds) {
+    source.stop(audioEndSeconds)
+  }
 
   return offlineCtx.startRendering()
 }
