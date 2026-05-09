@@ -161,7 +161,8 @@ export const TitleSlide: React.FC<Props> = ({ clip }) => {
           position: 'relative',
           zIndex: 1,
           textAlign: 'center',
-          padding: '40px',
+          padding: '0 40px',
+          maxWidth: '90%',
           opacity,
           transform,
         }}

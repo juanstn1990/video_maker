@@ -253,7 +253,7 @@ export const useEditorStore = create<EditorStore>()(
           fontFamily: 'sans-serif',
           color: '#ffffff',
           backgroundColor: '#000000',
-          durationFrames: 90,
+          durationFrames: state.config.fps * 4,
           transitionIn: { type: 'fade', durationFrames: 15 },
           textOverlays: [],
           animationIn: 'fadeIn',
